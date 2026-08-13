@@ -41,6 +41,28 @@ If your network allows `git` to GitHub but blocks release/archive downloads, run
 `./web/tools/fetch-ports-via-git.sh` once beforehand — it populates emscripten's
 port cache over git instead.
 
+### One-file build
+
+For hosts that will only serve a single document — a paste site, a sandboxed
+viewer, an email attachment — everything can be inlined into one HTML file:
+
+```sh
+emmake make PLATFORM=Emscripten SINGLE_FILE=1 OUTDIR=web/dist-single
+node web/tools/bundle-standalone.mjs           # -> web/dist-single/rsdkv4-standalone.html
+```
+
+That's about 1.8 MB with the wasm base64'd into the script, and it makes no
+subresource requests at all. Add `--fragment` to emit the pieces without an
+`<html>`/`<head>`/`<body>` wrapper, for hosts that supply their own shell.
+
+It behaves identically except that there's no service worker (so no home-screen
+install) and no `web/data/` to auto-load from — it always asks for the data file.
+The markup, styles and scripts are read from the normal build's sources, so the
+two can't drift apart.
+
+Note that a `file://` URL won't work: browsers block IndexedDB there, so the
+data file can't be stored. Serve it over http(s).
+
 ## Run it
 
 ```sh

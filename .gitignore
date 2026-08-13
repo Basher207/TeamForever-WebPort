@@ -286,5 +286,6 @@ dependencies/mac/SDL2
 
 # Web / WebAssembly build
 web/dist/
+web/dist-single/
 # game data belongs to whoever owns a copy of the game, never to this repo
 web/data/

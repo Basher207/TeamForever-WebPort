@@ -31,6 +31,7 @@
 
 	let dataBytes = null;
 	let engine = null;
+	let savesPersist = true;
 
 	/* ---------------------------  small helpers  ------------------------ */
 
@@ -62,6 +63,10 @@
 	 * ask the player for their own copy.
 	 */
 	async function fetchDataFile() {
+		// The single-file build is one document with nothing hosted beside it, so
+		// there is no data/ directory to probe - asking would only log a 404.
+		if (engineIsInlined()) return null;
+
 		let response;
 		try {
 			response = await fetch(DATA_URL, { cache: "force-cache" });
@@ -226,14 +231,28 @@
 
 				// Saves and settings: IDBFS, populated before main() runs.
 				FS.mkdir(SAVE_ROOT);
-				FS.mount(IDBFS, {}, SAVE_ROOT);
+
+				// Some contexts have no usable IndexedDB at all - a sandboxed
+				// frame with an opaque origin, private mode on older browsers.
+				// The game should still be playable there, just without saves,
+				// so fall back to the plain in-memory filesystem.
+				try {
+					FS.mount(IDBFS, {}, SAVE_ROOT);
+				} catch (err) {
+					console.warn("[boot] no persistent storage here; progress won't be kept:", err);
+					savesPersist = false;
+					return;
+				}
 
 				// Hold main() back until IndexedDB has been read back into the
 				// mount, otherwise the engine writes a fresh settings.ini over
 				// whatever the player already had.
 				mod.addRunDependency("rsdk-save-load");
 				FS.syncfs(true, err => {
-					if (err) console.warn("[boot] could not restore saved data:", err);
+					if (err) {
+						console.warn("[boot] could not restore saved data:", err);
+						savesPersist = false;
+					}
 					mod.removeRunDependency("rsdk-save-load");
 				});
 			}],
@@ -242,6 +261,10 @@
 				ui.boot.classList.add("hidden");
 				document.title = titleForGame();
 				ui.canvas.focus();
+
+				if (!savesPersist) {
+					console.warn("[boot] running without persistent storage - progress will be lost on reload");
+				}
 			},
 
 			onEngineExit: () => {
@@ -261,14 +284,25 @@
 		return "RSDKv4 Web";
 	}
 
+	// The single-file build inlines the engine ahead of this script, so the
+	// factory is already defined and there is nothing to fetch.
+	const engineIsInlined = () => typeof createRetroEngine === "function";
+
 	async function start() {
 		ui.play.disabled = true;
 		ui.error.classList.add("hidden");
 		setStatus("Loading engine…");
 		setProgress(0.15);
 
+		if (typeof WebAssembly !== "object" || typeof WebAssembly.instantiate !== "function") {
+			ui.play.disabled = false;
+			fail("This browser can't run WebAssembly, which the engine needs.\n" +
+			     "If you're viewing this through an embed or preview pane, try opening it in a browser tab directly.");
+			return;
+		}
+
 		try {
-			await loadScript(WASM_LOADER);
+			if (!engineIsInlined()) await loadScript(WASM_LOADER);
 			setProgress(0.5);
 
 			engine = await createRetroEngine(buildModuleConfig());
@@ -310,7 +344,9 @@
 
 	/* -------------------------  service worker  ------------------------- */
 
-	if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+	// Skipped for the single-file build: it is one document with no sw.js beside
+	// it, and registering would only produce a 404 in the console.
+	if ("serviceWorker" in navigator && location.protocol.startsWith("http") && !engineIsInlined()) {
 		window.addEventListener("load", () => {
 			navigator.serviceWorker.register("sw.js").catch(err => {
 				console.warn("[boot] service worker registration failed:", err);

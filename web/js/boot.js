@@ -40,7 +40,19 @@
 		"0":   "dist-rev0",
 		"1nc": "dist-rev1nc",
 	};
-	const REV = REV_BUILDS[params.get("rev")] ? params.get("rev") : "2";
+	// Remembered, because the list a file needs is a property of that file and so
+	// does not change between visits, and because the query string is exactly what
+	// gets lost when the page is launched from a home screen shortcut - which is
+	// how it will mostly be launched. An explicit ?rev= still wins, so a link
+	// works regardless of what the device happens to remember.
+	const REV_KEY = "rsdkv4:opcodeList";
+	let revStored = null;
+	try { revStored = localStorage.getItem(REV_KEY); } catch (e) { /* private mode */ }
+
+	const REV = REV_BUILDS[params.get("rev")] ? params.get("rev")
+	          : REV_BUILDS[revStored]         ? revStored
+	          :                                 "2";
+	try { localStorage.setItem(REV_KEY, REV); } catch (e) { /* private mode */ }
 
 	// Every revision has a heap-checked twin, so ?rev=X&safe=1 always means what
 	// it says. An earlier version silently fell back to the default heap-checked
@@ -262,6 +274,10 @@
 	async function changeDataFile() {
 		RetroLog.info("clearing the cached game data…");
 		await RetroStorage.forgetDataFile();
+		// The remembered opcode list belongs to the file being forgotten, so a
+		// different file would otherwise inherit a choice made for its predecessor
+		// and fail in a way that looks nothing like a wrong setting.
+		try { localStorage.removeItem(REV_KEY); } catch (e) { /* private mode */ }
 		location.reload();
 	}
 
@@ -271,8 +287,8 @@
 	// a phone is miserable, and a stale cached page can hand back a boot.js that
 	// has never heard of the parameter, which looks exactly like the flag being
 	// ignored. The button always comes from the same file that reads it.
-	// Which opcode revision a data file needs is a property of the file, and
-	// nothing in the container says which. So it is a toggle rather than a
+	// Which opcode list a data file needs is a property of the file, and
+	// nothing in the container says which. So it is a cycle rather than a
 	// setting: data from the original Sonic 1 release wants rev 0, the Forever
 	// projects' own data wants the default.
 	document.getElementById("log-rev").addEventListener("click", () => {

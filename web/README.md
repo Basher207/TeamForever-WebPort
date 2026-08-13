@@ -273,6 +273,29 @@ Missing-asset lines (`Couldn't load file 'Data/…'`) name what the data file
 lacks. A pack that holds a `GameConfig.bin` but no stage data gets exactly this
 far: it runs, it renders, and there is nothing to see.
 
+**The game loads, then crashes or loops on the first scene.** The data file's
+scripts are compiled against a specific opcode list, and the list changed across
+releases of the 2013 mobile games. An opcode the engine has but the data does not
+makes every opcode above it decode a place too low — so a data file of the wrong
+vintage loads its assets happily and then reads its own bytecode as gibberish.
+Nothing in the container says which list it wants, so it cannot be detected;
+there is a build per list, chosen with **Opcode rev** in the startup log, or
+`?rev=`:
+
+| `?rev=` | list |
+| --- | --- |
+| *(default)* | the latest RSDKv4 list — Sonic 1 Forever, Sonic 2 Absolute, current official releases |
+| `1nc` | as revision 1, without `SetClassicFade` and `ClassicTint` — older official releases |
+| `0` | the earliest Sonic 1 list |
+
+The choice is remembered per browser, so a home-screen launch keeps it, and it is
+cleared along with the data file by **Forget the game data file**.
+
+Symptoms of the wrong list, in the log with `?safe=1`: `script stopped:` lines,
+an opcode that "decodes" as something structurally impossible for where it
+appears (`ProcessAnimation` at the top of a startup event), or a stage that
+reloads endlessly because a draw event decoded into `LoadStage`.
+
 **No sound.** Browsers refuse to start audio without a user gesture, which is
 what the Play button is for. If you skipped it somehow, reload.
 

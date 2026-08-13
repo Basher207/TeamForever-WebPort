@@ -32,10 +32,14 @@
 	let dataBytes = null;
 	let engine = null;
 	let savesPersist = true;
+	let debugRequested = false;
 
 	/* ---------------------------  small helpers  ------------------------ */
 
-	const setStatus = text => { ui.status.textContent = text; };
+	const setStatus = text => {
+		ui.status.textContent = text;
+		RetroLog.info(text);
+	};
 
 	function setProgress(fraction) {
 		if (fraction === null) {
@@ -48,6 +52,8 @@
 
 	function fail(message, err) {
 		if (err) console.error("[boot]", err);
+		RetroLog.error(message.replace(/\n/g, " ") + (err ? " | " + err : ""));
+		RetroLog.show(true);
 		ui.error.textContent = message + (err ? "\n\n" + err : "");
 		ui.error.classList.remove("hidden");
 		setProgress(null);
@@ -235,8 +241,11 @@
 			arguments: [],
 			locateFile: path => "dist/" + path,
 
-			print: (...args) => console.log("[rsdk]", ...args),
-			printErr: (...args) => console.warn("[rsdk]", ...args),
+			// The engine's own stdout/stderr, mirrored onto the screen: on a phone
+			// the console is unreachable, and this is where the interesting
+			// failures announce themselves.
+			print: (...args) => { console.log("[rsdk]", ...args); RetroLog.info("rsdk: " + args.join(" ")); },
+			printErr: (...args) => { console.warn("[rsdk]", ...args); RetroLog.warn("rsdk: " + args.join(" ")); },
 
 			// Emscripten hands each preRun callback the module itself; with
 			// MODULARIZE there is no global Module to reach for instead.
@@ -333,6 +342,8 @@
 			engine = await createRetroEngine(buildModuleConfig());
 			setProgress(1);
 
+			if (debugRequested) engine.ccall("RSDK_SetDebugMode", null, ["number"], [1]);
+
 			wireEngine();
 		} catch (err) {
 			ui.play.disabled = false;
@@ -345,6 +356,10 @@
 		// Handy from the browser console, and how the smoke tests confirm that a
 		// touch really reaches the engine's input state.
 		window.RetroEngineModule = engine;
+
+		// From here the log reports what the engine itself says about its state,
+		// and steps aside once there is actually a picture.
+		RetroLog.watch(engine);
 
 		const setButtonState = engine.cwrap("RSDK_SetButtonState", null, ["number", "number"]);
 		const setFocused = engine.cwrap("RSDK_SetFocused", null, ["number"]);
@@ -366,6 +381,16 @@
 	}
 
 	ui.play.addEventListener("click", start);
+
+	RetroLog.attach();
+	RetroLog.info(`page ${location.pathname} · ${navigator.userAgent}`);
+
+	// ?debug=1 turns on the engine's own logging, which is off by default, so a
+	// black screen can be investigated without rebuilding anything.
+	if (new URLSearchParams(location.search).get("debug") === "1") {
+		debugRequested = true;
+		RetroLog.info("debug mode requested");
+	}
 
 	/* -------------------------  service worker  ------------------------- */
 

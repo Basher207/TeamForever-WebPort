@@ -244,9 +244,28 @@ Button numbers are the `InputButtons` enum from
 `RSDKv` signature at the start of the file. You want `Data.rsdk` from the game's
 install folder, not a `.zip` or an installer.
 
-**Black screen after pressing Play.** Open the console: engine messages are
-prefixed `[rsdk]`. A data file that loads but has no `Data/Game/GameConfig.bin`
-gets exactly this far and then stops.
+**Black screen after pressing Play.** The startup log on screen is there for
+exactly this — a phone has no console. It shows the boot steps, the engine's own
+stdout, and a snapshot of engine state, and it deliberately stays put while the
+screen is blank rather than hiding on a timer. **Copy** puts the whole thing on
+the clipboard so it can be pasted into a bug report.
+
+Add `?debug=1` to the URL to switch on the engine's own logging, which is off by
+default, for the fuller picture.
+
+What the snapshot means:
+
+| field | reading it |
+| --- | --- |
+| `running: 0` | the engine gave up during init — usually no `Data/Game/GameConfig.bin` |
+| `usingDataFile: 0` | the data file was never accepted as an RSDK container |
+| `frames` not rising | the main loop is wedged, not merely drawing nothing |
+| `blank: 1` with frames rising | the engine is running and rendering a flat colour: assets are missing |
+| `stage: ""` with `stageMode: 1` | it is trying to load a scene and finding nothing |
+
+Missing-asset lines (`Couldn't load file 'Data/…'`) name what the data file
+lacks. A pack that holds a `GameConfig.bin` but no stage data gets exactly this
+far: it runs, it renders, and there is nothing to see.
 
 **No sound.** Browsers refuse to start audio without a user gesture, which is
 what the Play button is for. If you skipped it somehow, reload.

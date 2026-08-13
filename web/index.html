@@ -67,6 +67,20 @@
     </div>
   </div>
 
+  <!-- ==================== startup log ====================== -->
+  <!-- Visible while the game gets going, then steps aside once there is a
+       picture. A phone has no console, so this is the only way to see what
+       happened when the screen stays black. -->
+  <div id="log">
+    <div class="log-head">
+      <span class="log-title">Startup log</span>
+      <button id="log-copy" type="button">Copy</button>
+      <button id="log-hide" type="button" aria-label="Hide log">Hide</button>
+    </div>
+    <div id="log-body"></div>
+  </div>
+  <button id="log-badge" class="hidden" type="button" aria-label="Show startup log">⌄</button>
+
   <!-- ==================== settings sheet ==================== -->
   <div id="settings" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
     <div class="sheet-inner">
@@ -156,6 +170,7 @@
 
 </div>
 
+<script src="js/log.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/zip.js"></script>
 <script src="js/controls.js"></script>

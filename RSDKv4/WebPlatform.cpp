@@ -78,6 +78,7 @@ bool WebInputActive()
 // Accumulate real time and step the engine only when a whole frame is due.
 static double webFrameAccumulator = 0.0;
 static double webLastTime         = -1.0;
+static int webFrameCount          = 0;
 
 // Never run more than this many logic steps in one animation frame; without a
 // cap, a long stall (backgrounded tab, slow load) would try to replay every
@@ -122,6 +123,7 @@ static void WebFrame()
     while (webFrameAccumulator >= frameStep && steps < WEB_MAX_CATCHUP_FRAMES) {
         webFrameAccumulator -= frameStep;
         ++steps;
+        ++webFrameCount;
 
         Engine.StepFrame();
 
@@ -205,6 +207,63 @@ EMSCRIPTEN_KEEPALIVE void RSDK_RequestSaveSync()
 {
     webSaveDirty    = true;
     webSaveCooldown = 0;
+}
+
+// How many game frames have actually been stepped. The page uses this to tell
+// "the engine is running" apart from "the engine started and then wedged".
+EMSCRIPTEN_KEEPALIVE int RSDK_GetFrameCount() { return webFrameCount; }
+
+// Whether the last rendered frame was a single flat colour.
+//
+// The page needs to know whether anything is actually visible, and it cannot ask
+// the canvas: SDL owns the drawing context, so there is no second context to
+// read pixels back through. Sampling the software framebuffer here answers the
+// same question far more cheaply than a readback would.
+EMSCRIPTEN_KEEPALIVE int RSDK_ScreenIsBlank()
+{
+#if RETRO_SOFTWARE_RENDER
+    if (!Engine.frameBuffer)
+        return 1;
+
+    const int stride = 7; // coprime with the line size, so rows don't sample the same columns
+    const int total  = GFX_LINESIZE * SCREEN_YSIZE;
+    if (total <= 0)
+        return 1;
+
+    ushort first = Engine.frameBuffer[0];
+    for (int i = stride; i < total; i += stride) {
+        if (Engine.frameBuffer[i] != first)
+            return 0;
+    }
+#endif
+    return 1;
+}
+
+// A snapshot of the state that explains a black screen, as JSON. Cheaper to read
+// than a log, and unlike PrintLog it does not depend on debug mode being on.
+EMSCRIPTEN_KEEPALIVE const char *RSDK_GetStatusJSON()
+{
+    static char buffer[512];
+
+    snprintf(buffer, sizeof(buffer),
+             "{\"running\":%d,\"initialised\":%d,\"frames\":%d,\"blank\":%d,"
+             "\"gameType\":%d,\"gameMode\":%d,\"usingDataFile\":%d,\"usingBytecode\":%d,"
+             "\"screen\":\"%dx%d\",\"stageMode\":%d,\"stageList\":%d,\"stagePos\":%d,"
+             "\"stage\":\"%s\",\"audio\":%d}",
+             Engine.running ? 1 : 0, Engine.initialised ? 1 : 0, webFrameCount, RSDK_ScreenIsBlank(),
+             Engine.gameType, Engine.gameMode, Engine.usingDataFile ? 1 : 0, Engine.usingBytecode ? 1 : 0,
+             SCREEN_XSIZE, SCREEN_YSIZE, stageMode, activeStageList, stageListPosition,
+             currentStageFolder, audioEnabled ? 1 : 0);
+
+    return buffer;
+}
+
+// Turns on the engine's own logging, which is off by default. Wired to ?debug=1
+// so a black screen can be investigated without a rebuild.
+EMSCRIPTEN_KEEPALIVE void RSDK_SetDebugMode(int enabled)
+{
+    engineDebugMode = enabled != 0;
+    Engine.devMenu  = enabled != 0;
 }
 
 // Whether the engine currently considers a button held, after the keyboard,

@@ -1247,9 +1247,12 @@ bool RetroEngine::LoadGameConfig(const char *filePath)
     AddNativeFunction("ReceiveValue", ReceiveValue);
     AddNativeFunction("TransmitGlobal", TransmitGlobal);
     AddNativeFunction("ShowPromoPopup", ShowPromoPopup);
-#if RETRO_USE_NETWORKING
+    // Registered unconditionally. Scripts call native functions by index, and
+    // those indices are baked into the compiled bytecode, so leaving one out
+    // shifts every later entry down and a script ends up calling its neighbour
+    // through the wrong signature. Platforms without a networking backend get
+    // the no-op from Networking.cpp rather than a hole in the table.
     AddNativeFunction("SetNetworkGameName", SetNetworkGameName);
-#endif
 #if RETRO_USE_MOD_LOADER
     AddNativeFunction("ExitGame", ExitGame);
     AddNativeFunction("FileExists", FileExists);

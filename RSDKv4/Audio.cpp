@@ -51,6 +51,16 @@ int InitAudioPlayback()
 
 #if !RETRO_USE_ORIGINAL_CODE
 #if RETRO_USING_SDL1 || RETRO_USING_SDL2
+    // SDL_Init(SDL_INIT_EVERYTHING) in InitRenderDevice stops at the first
+    // subsystem that fails and its result is not checked, so one unsupported
+    // subsystem takes the rest down with it. That surfaces here, much later, as
+    // "Audio subsystem is not initialized" when opening the device. Bring audio
+    // up explicitly rather than assuming the earlier blanket init covered it.
+    if (!SDL_WasInit(SDL_INIT_AUDIO)) {
+        if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0)
+            PrintLog("Could not initialise the audio subsystem: %s", SDL_GetError());
+    }
+
     SDL_AudioSpec want;
     want.freq     = AUDIO_FREQUENCY;
     want.format   = AUDIO_FORMAT;

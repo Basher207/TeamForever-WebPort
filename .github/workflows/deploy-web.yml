@@ -75,12 +75,14 @@ jobs:
           source ~/emsdk/emsdk_env.sh
           emmake make PLATFORM=Emscripten -j"$(nproc)"
 
-      # Same objects, relinked with the heap checker on. Reached with ?safe=1
-      # when something needs diagnosing; costs a link, not a rebuild.
+      # Heap-checked and unoptimised, in its own object directory. Reached with
+      # ?safe=1 when something needs diagnosing. Unoptimised matters: at -O3 the
+      # frames worth reading are inlined away and the stack is just indices.
       - name: Build the heap-checked variant
         run: |
           source ~/emsdk/emsdk_env.sh
-          emmake make PLATFORM=Emscripten SAFE=1 OUTDIR=web/dist-safe -j"$(nproc)"
+          emmake make PLATFORM=Emscripten SAFE=1 DEBUG=1 \
+            OBJDIR=obj/Emscripten-safe OUTDIR=web/dist-safe -j"$(nproc)"
 
       - name: Assemble the site
         run: |

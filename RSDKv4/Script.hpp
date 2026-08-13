@@ -115,6 +115,9 @@ extern ScriptEngine scriptEng;
 extern char scriptText[0x4000];
 
 extern int scriptDataPos;
+#if !RETRO_USE_ORIGINAL_CODE
+extern bool scriptTraceEnabled;
+#endif
 extern int scriptDataOffset;
 extern int jumpTableDataPos;
 extern int jumpTableDataOffset;

@@ -20,6 +20,11 @@ ScriptEngine scriptEng = ScriptEngine();
 char scriptText[0x4000];
 
 int scriptDataPos       = 0;
+#if !RETRO_USE_ORIGINAL_CODE
+// Diagnostic only: logs each opcode as it starts, so a crash inside the switch
+// below can be attributed to a specific one.
+bool scriptTraceEnabled = false;
+#endif
 int scriptDataOffset    = 0;
 int jumpTableDataPos    = 0;
 int jumpTableDataOffset = 0;
@@ -3342,6 +3347,17 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
         int opcode           = scriptData[scriptDataPtr++];
         int opcodeSize       = functions[opcode].opcodeSize;
         int scriptCodeOffset = scriptDataPtr;
+
+#if !RETRO_USE_ORIGINAL_CODE
+        // Off unless something is being diagnosed: a crash inside this switch
+        // gives a stack that stops at ProcessScript, which is one enormous
+        // function, so the last opcode to start is the only way to tell which of
+        // several hundred cases was running.
+        // printf rather than PrintLog: PrintLog opens, appends to and closes
+        // log.txt on every call, and tracing a stage load is thousands of lines.
+        if (scriptTraceEnabled)
+            printf("op %s (%d) obj %d @%d\n", functions[opcode].name, opcode, objectEntityList[objectEntityPos].type, scriptCodeOffset);
+#endif
 
         scriptText[0] = '\0';
 

@@ -272,6 +272,11 @@ EMSCRIPTEN_KEEPALIVE void RSDK_SetDebugMode(int enabled)
 // the ones that say why something came up disabled.
 EMSCRIPTEN_KEEPALIVE void RSDK_SetForceLog(int enabled) { forceDebugLog = enabled != 0; }
 
+// Logs every script opcode as it starts. ProcessScript is one enormous switch,
+// so a crash inside it produces a stack that stops at its door; the last opcode
+// to begin is the only thing that says which of several hundred cases was live.
+EMSCRIPTEN_KEEPALIVE void RSDK_SetScriptTrace(int enabled) { scriptTraceEnabled = enabled != 0; }
+
 // Whether the engine currently considers a button held, after the keyboard,
 // gamepad and touch sources have been merged. Exposed so the page (and the
 // browser console) can confirm input is actually landing.

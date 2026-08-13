@@ -341,7 +341,8 @@
 				if (!SAFE_BUILD) return;
 				try {
 					this._RSDK_SetForceLog(1);
-					RetroLog.info("early engine logging enabled");
+					this._RSDK_SetScriptTrace(1);
+					RetroLog.info("early engine logging and script tracing enabled");
 				} catch (err) {
 					console.warn("[boot] could not enable early logging:", err);
 					RetroLog.warn("could not enable early logging: " + err);

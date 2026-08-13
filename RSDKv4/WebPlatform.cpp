@@ -243,17 +243,31 @@ EMSCRIPTEN_KEEPALIVE int RSDK_ScreenIsBlank()
 // than a log, and unlike PrintLog it does not depend on debug mode being on.
 EMSCRIPTEN_KEEPALIVE const char *RSDK_GetStatusJSON()
 {
-    static char buffer[512];
+    static char buffer[640];
+
+    // "sent" is what the page pushed in, "held" is what the engine made of it
+    // after ProcessInput. They are separate because a button that arrives but
+    // never lands looks exactly like a button that never arrived, and the two
+    // have nothing in common to fix.
+    int sent = 0, held = 0;
+    for (int i = 0; i < INPUT_BUTTONCOUNT && i < 31; ++i) {
+        if (webInputHeld[i])
+            sent |= 1 << i;
+        if (inputDevice[i].hold)
+            held |= 1 << i;
+    }
 
     snprintf(buffer, sizeof(buffer),
              "{\"running\":%d,\"initialised\":%d,\"frames\":%d,\"blank\":%d,"
              "\"gameType\":%d,\"gameMode\":%d,\"usingDataFile\":%d,\"usingBytecode\":%d,"
              "\"screen\":\"%dx%d\",\"stageMode\":%d,\"stageList\":%d,\"stagePos\":%d,"
-             "\"stage\":\"%s\",\"audio\":%d}",
+             "\"stage\":\"%s\",\"audio\":%d,\"sent\":%d,\"held\":%d,\"inputType\":%d,"
+             "\"deviceType\":%d,\"scriptErrors\":%d,\"reloads\":%d}",
              Engine.running ? 1 : 0, Engine.initialised ? 1 : 0, webFrameCount, RSDK_ScreenIsBlank(),
              Engine.gameType, Engine.gameMode, Engine.usingDataFile ? 1 : 0, Engine.usingBytecode ? 1 : 0,
              SCREEN_XSIZE, SCREEN_YSIZE, stageMode, activeStageList, stageListPosition,
-             currentStageFolder, audioEnabled ? 1 : 0);
+             currentStageFolder, audioEnabled ? 1 : 0, sent, held, inputType,
+             Engine.gameDeviceType, scriptRangeErrors, reloadStreak);
 
     return buffer;
 }

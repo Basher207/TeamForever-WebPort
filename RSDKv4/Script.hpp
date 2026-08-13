@@ -114,6 +114,13 @@ extern int foreachStackPos;
 extern ScriptEngine scriptEng;
 extern char scriptText[0x4000];
 
+#if !RETRO_USE_ORIGINAL_CODE
+// Count of script stream problems since the last bytecode load. Non-zero means
+// the data's opcode list does not match the engine's, which the page uses to
+// pick a different one rather than making someone read a log to find out.
+extern int scriptRangeErrors;
+#endif
+
 extern int scriptDataPos;
 #if !RETRO_USE_ORIGINAL_CODE
 extern bool scriptTraceEnabled;

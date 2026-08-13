@@ -140,6 +140,12 @@ extern SceneInfo stageList[STAGELIST_MAX][0x100];
 
 extern int stageMode;
 
+#if !RETRO_USE_ORIGINAL_CODE
+// Consecutive reloads of the same scene with no progress. A script calling
+// LoadStage from an event that runs every frame never gets anywhere.
+extern int reloadStreak;
+#endif
+
 extern int cameraTarget;
 extern int cameraStyle;
 extern int cameraEnabled;

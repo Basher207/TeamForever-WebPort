@@ -480,11 +480,62 @@
 			}
 
 			wireEngine();
+			watchForWrongOpcodeList();
 		} catch (err) {
 			ui.play.disabled = false;
 			setProgress(null);
 			fail("The engine failed to start.", err);
 		}
+	}
+
+	// A data file compiled against a different opcode list loads every one of its
+	// assets happily and only then reads its own bytecode as gibberish, so the
+	// symptom is a black screen or a scene that reloads forever - nothing that
+	// suggests a setting. The engine now counts both, so the page can try the
+	// other lists itself instead of expecting someone to know about ?rev=.
+	//
+	// This matters most where the query string cannot help: an installed home
+	// screen app launches its own start_url, and on iOS it gets a storage
+	// container of its own, so it cannot inherit a choice made in the browser.
+	function watchForWrongOpcodeList() {
+		const order = ["2", "1nc", "0"];
+
+		// Per-tab, so a genuine crash loop cannot bounce a device between builds
+		// forever: each list is tried at most once per launch.
+		let tried = [];
+		try { tried = JSON.parse(sessionStorage.getItem("rsdkv4:triedLists") || "[]"); } catch (e) { /* private mode */ }
+		if (!tried.includes(REV)) tried.push(REV);
+
+		const next = order.find(r => !tried.includes(r));
+		const getStatus = engine.cwrap("RSDK_GetStatusJSON", "string", []);
+
+		const timer = setInterval(() => {
+			let s;
+			try { s = JSON.parse(getStatus()); } catch (e) { return; }
+
+			// Drawing something means the list is right; stop watching either way.
+			if (!s.blank) { clearInterval(timer); return; }
+
+			const looping = s.reloads >= 8;
+			if (!s.scriptErrors && !looping) return;
+			clearInterval(timer);
+
+			const why = looping ? "the scene keeps reloading" : `the scripts stopped ${s.scriptErrors} time(s)`;
+			if (!next) {
+				RetroLog.warn(`${why}, and every opcode list has been tried. ` +
+				              "This data file does not match any of them.");
+				return;
+			}
+
+			RetroLog.warn(`${why} — opcode list ${REV} looks wrong for this file, trying ${next}`);
+			try { sessionStorage.setItem("rsdkv4:triedLists", JSON.stringify(tried)); } catch (e) { /* private mode */ }
+			try { localStorage.setItem(REV_KEY, next); } catch (e) { /* private mode */ }
+
+			const url = new URL(location.href);
+			url.searchParams.set("rev", next);
+			url.searchParams.set("r", String(Date.now()));
+			setTimeout(() => location.replace(url.toString()), 1200);
+		}, 500);
 	}
 
 	function wireEngine() {

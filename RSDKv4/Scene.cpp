@@ -590,7 +590,7 @@ void ProcessParallaxAutoScroll()
 }
 
 #if !RETRO_USE_ORIGINAL_CODE
-static int reloadStreak = 0;
+int reloadStreak = 0;
 #endif
 
 void LoadStageFiles(void)

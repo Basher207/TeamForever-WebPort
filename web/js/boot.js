@@ -16,7 +16,12 @@
 	const BUILD = typeof window.__BUILD__ === "string" ? window.__BUILD__ : "";
 	const bust = url => (BUILD ? url + (url.includes("?") ? "&" : "?") + "v=" + BUILD : url);
 
-	const WASM_LOADER = "dist/s1fs2a.js";
+	// ?safe=1 loads the heap-checked build, which reports the exact access that
+	// goes out of bounds instead of trapping somewhere further downstream. It is
+	// far too slow to play; it is for finding a bug once.
+	const SAFE_BUILD = new URLSearchParams(location.search).get("safe") === "1";
+	const WASM_DIR = SAFE_BUILD ? "dist-safe/" : "dist/";
+	const WASM_LOADER = WASM_DIR + "s1fs2a.js";
 	const DATA_URL = "data/Data.rsdk";      // optional: drop your own copy here
 	const GAME_ROOT = "/rsdk";
 	const SAVE_ROOT = "/rsdk/save";
@@ -256,7 +261,7 @@
 		return {
 			canvas: ui.canvas,
 			arguments: [],
-			locateFile: path => bust("dist/" + path),
+			locateFile: path => bust(WASM_DIR + path),
 
 			// The engine's own stdout/stderr, mirrored onto the screen: on a phone
 			// the console is unreachable, and this is where the interesting
@@ -351,6 +356,7 @@
 		ui.play.disabled = true;
 		ui.error.classList.add("hidden");
 		setStatus("Loading engine…");
+		if (SAFE_BUILD) RetroLog.warn("using the heap-checked build — expect it to be very slow");
 		setProgress(0.15);
 
 		if (typeof WebAssembly !== "object" || typeof WebAssembly.instantiate !== "function") {

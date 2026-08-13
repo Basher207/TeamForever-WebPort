@@ -253,6 +253,12 @@ the clipboard so it can be pasted into a bug report.
 Add `?debug=1` to the URL to switch on the engine's own logging, which is off by
 default, for the fuller picture.
 
+Add `?safe=1` to load the heap-checked build instead. It is the same objects
+relinked with `SAFE_HEAP`, `ASSERTIONS=2` and `STACK_OVERFLOW_CHECK=2`, so an
+out-of-bounds access aborts at the offending load or store with an address,
+rather than trapping further downstream with `-O3` having inlined away who did
+it. Much too slow to play — it is for finding a bug once.
+
 What the snapshot means:
 
 | field | reading it |

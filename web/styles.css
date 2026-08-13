@@ -386,6 +386,8 @@ html, body {
 #boot-bar { height: 100%; width: 0; background: var(--accent); transition: width .15s linear; }
 
 .boot-help { color: var(--muted); font-size: 13.5px; margin: 18px 0 14px; }
+.boot-help a { color: var(--accent); }
+.boot-help strong { color: var(--text); }
 .boot-help code {
 	background: var(--bg-raised);
 	border-radius: 5px;

@@ -4,8 +4,11 @@ The engine in this repository compiled to WebAssembly, wrapped in a phone-first
 page with on-screen controls. Same C++ engine as every other platform here — the
 browser is just another target alongside Windows, Linux, Switch and Android.
 
-No game assets are included. You supply the data file from your own copy of
-Sonic 1 Forever or Sonic 2 Absolute.
+No game assets are included. As with every other build of this decompilation,
+you supply `Data.rsdk` yourself, extracted from a legally obtained copy of the
+official Sonic 1 or Sonic 2 (2013 mobile) release — see the
+["support the official release"](../README.md) section of the root README for
+where to buy it and the extraction tutorials for Android and iOS.
 
 **Play it:** https://basher207.github.io/TeamForever-WebPort/
 

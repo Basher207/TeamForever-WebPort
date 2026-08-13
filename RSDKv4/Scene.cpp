@@ -589,6 +589,10 @@ void ProcessParallaxAutoScroll()
     for (int i = 0; i < vParallax.entryCount; ++i) vParallax.scrollPos[i] += vParallax.scrollSpeed[i];
 }
 
+#if !RETRO_USE_ORIGINAL_CODE
+static int reloadStreak = 0;
+#endif
+
 void LoadStageFiles(void)
 {
     FileInfo infoStore;
@@ -816,9 +820,21 @@ void LoadStageFiles(void)
         LoadStageGIFFile(stageListPosition);
         LoadStageCollisions();
         LoadStageBackground();
+#if !RETRO_USE_ORIGINAL_CODE
+        reloadStreak = 0;
+#endif
     }
     else {
         PrintLog("Reloading Scene %s - %s", stageListNames[activeStageList], stageList[activeStageList][stageListPosition].name);
+#if !RETRO_USE_ORIGINAL_CODE
+        // A script that calls LoadStage from an event which runs every frame
+        // reloads the same scene forever, and the reload resets the object state
+        // that would otherwise have moved it on. Left alone it spins for as long
+        // as the page is open, and by the time anyone looks the part of the log
+        // worth reading has scrolled away. Say so once, loudly.
+        if (++reloadStreak == 8)
+            PrintLog("scene has reloaded 8 times without getting anywhere - a script is calling LoadStage every frame");
+#endif
     }
     LoadStageChunks();
     for (int i = 0; i < TRACK_COUNT; ++i) SetMusicTrack("", i, false, 0);

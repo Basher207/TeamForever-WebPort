@@ -24,6 +24,13 @@ int scriptDataPos       = 0;
 // Diagnostic only: logs each opcode as it starts, so a crash inside the switch
 // below can be attributed to a specific one.
 bool scriptTraceEnabled = false;
+
+// Capped so a script that stops every frame cannot fill the log, and reset per
+// bytecode load so the cap applies to a scene rather than to the whole session -
+// otherwise a stage that reloads in a loop burns the budget in its first second
+// and every later report is silently dropped, which reads as scripts ending for
+// no reason at all.
+int scriptRangeErrors = 0;
 #endif
 int scriptDataOffset    = 0;
 int jumpTableDataPos    = 0;
@@ -3261,6 +3268,7 @@ void LoadBytecode(int stageListID, int scriptID)
         // absolute offsets land where its compiler intended. PrintLog does its own
         // gating anyway.
         {
+            scriptRangeErrors = 0;
             PrintLog("bytecode '%s': %d scripts, %d functions, code now %d/%d, jumps now %d/%d", scriptPath, scriptCount, functionCount,
                      scriptCodePos, SCRIPTDATA_COUNT, jumpTablePos, JUMPTABLE_COUNT);
             for (int i = 0; i < scriptCount; ++i) {
@@ -3274,13 +3282,20 @@ void LoadBytecode(int stageListID, int scriptID)
                 // is aimed correctly starts with a small opcode followed by a
                 // parameter type of 1, 2 or 3; one that is not looks like nothing
                 // in particular, and that difference is visible at a glance.
-                int at = objectScriptList[t].eventStartup.scriptCodePtr;
-                for (int row = 0; row < 3; ++row) {
-                    int a = at + row * 8;
-                    if (a < 0 || a + 8 >= SCRIPTDATA_COUNT)
-                        break;
-                    PrintLog("       @%d: %d %d %d %d %d %d %d %d", a, scriptData[a], scriptData[a + 1], scriptData[a + 2], scriptData[a + 3],
-                             scriptData[a + 4], scriptData[a + 5], scriptData[a + 6], scriptData[a + 7]);
+                // All three events, not just startup: the draw event turned out to
+                // matter just as much, and an offset can only be judged against the
+                // words actually sitting at it.
+                const char *evName[3] = { "main", "draw", "startup" };
+                int evAt[3]           = { objectScriptList[t].eventMain.scriptCodePtr, objectScriptList[t].eventDraw.scriptCodePtr,
+                                          objectScriptList[t].eventStartup.scriptCodePtr };
+                for (int e = 0; e < 3; ++e) {
+                    for (int row = 0; row < 2; ++row) {
+                        int a = evAt[e] + row * 8;
+                        if (a < 0 || a + 8 >= SCRIPTDATA_COUNT)
+                            break;
+                        PrintLog("       %s @%d: %d %d %d %d %d %d %d %d", evName[e], a, scriptData[a], scriptData[a + 1], scriptData[a + 2],
+                                 scriptData[a + 3], scriptData[a + 4], scriptData[a + 5], scriptData[a + 6], scriptData[a + 7]);
+                    }
                 }
             }
             for (int i = 0; i < functionCount; ++i)
@@ -3389,8 +3404,6 @@ static const char *ScriptVarName(int varID)
 #endif
     return "<unknown>";
 }
-
-int scriptRangeErrors = 0;
 
 static void ReportScriptRange(const char *access, const char *name, int index, int opcode, int offset)
 {

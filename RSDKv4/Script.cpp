@@ -3250,6 +3250,25 @@ void LoadBytecode(int stageListID, int scriptID)
             functionScriptList[i].jumpTablePtr = jmpPos + (fileBuffer << 24);
         }
 
+#if !RETRO_USE_ORIGINAL_CODE
+        // The offsets in the file are absolute into the combined script data, so
+        // a stage's bytecode only lines up if the global block that precedes it
+        // ended up exactly the size its compiler assumed. When it did not, the
+        // events still start at plausible-looking offsets and simply decode into
+        // whatever happens to live there - which is invisible without this.
+        if (scriptTraceEnabled || engineDebugMode) {
+            PrintLog("bytecode '%s': %d scripts, %d functions, code now %d/%d, jumps now %d/%d", scriptPath, scriptCount, functionCount,
+                     scriptCodePos, SCRIPTDATA_COUNT, jumpTablePos, JUMPTABLE_COUNT);
+            for (int i = 0; i < scriptCount; ++i) {
+                int t = scriptID + i;
+                PrintLog("  obj %d '%s' main=%d draw=%d startup=%d (jumps %d/%d/%d)", t, typeNames[t], objectScriptList[t].eventMain.scriptCodePtr,
+                         objectScriptList[t].eventDraw.scriptCodePtr, objectScriptList[t].eventStartup.scriptCodePtr,
+                         objectScriptList[t].eventMain.jumpTablePtr, objectScriptList[t].eventDraw.jumpTablePtr,
+                         objectScriptList[t].eventStartup.jumpTablePtr);
+            }
+        }
+#endif
+
         CloseFile();
     }
 }
@@ -3354,14 +3373,27 @@ static const char *ScriptVarName(int varID)
 
 int scriptRangeErrors = 0;
 
-static void ReportScriptRange(const char *access, int arrayVal, int varID, int opcode, int offset)
+static void ReportScriptRange(const char *access, const char *name, int index, int opcode, int offset)
 {
     // Enough to show whether it is one stray index or a systematic shift,
     // without filling the on-screen log on a phone.
     if (++scriptRangeErrors > 24)
         return;
-    PrintLog("script %s out of range: %s[%d] in %s @%d (obj %d)%s", access, ScriptVarName(varID), arrayVal, functions[opcode].name, offset,
+    PrintLog("script %s out of range: %s[%d] in %s @%d (obj %d)%s", access, name, index, functions[opcode].name, offset,
              objectEntityList[objectEntityPos].type, scriptRangeErrors == 24 ? " - further reports suppressed" : "");
+}
+
+// scriptEng.arrayPosition holds nine entries and its index is read straight out
+// of the script stream, so a stream that is not really code indexes it wildly.
+// That is ahead of the variable ID in the decode order, which is why a trap here
+// leaves no trace line at all for the opcode that caused it.
+static int ScriptArrayPos(int index, int opcode, int offset)
+{
+    if (index < 0 || index >= 9) {
+        ReportScriptRange("arrayPos", "arrayPos", index, opcode, offset);
+        return 0;
+    }
+    return scriptEng.arrayPosition[index];
 }
 #endif
 
@@ -3369,6 +3401,13 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
 {
     bool running      = true;
     int scriptDataPtr = scriptCodePtr;
+#if !RETRO_USE_ORIGINAL_CODE
+    // The entry point, not just the opcodes reached from it: an event that
+    // decodes into nonsense is either being handed the wrong start offset or
+    // reading corrupt script data, and only the offset tells the two apart.
+    if (scriptTraceEnabled)
+        printf("event %d obj %d code=%d jump=%d\n", scriptEvent, objectEntityList[objectEntityPos].type, scriptCodePtr, jumpTablePtr);
+#endif
     // int jumpTableDataPtr = jumpTablePtr;
     jumpTableStackPos = 0;
     functionStackPos  = 0;
@@ -3402,19 +3441,19 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
                     case VARARR_NONE: arrayVal = objectEntityPos; break;
                     case VARARR_ARRAY:
                         if (scriptData[scriptDataPtr++] == 1)
-                            arrayVal = scriptEng.arrayPosition[scriptData[scriptDataPtr++]];
+                            arrayVal = ScriptArrayPos(scriptData[scriptDataPtr++], opcode, scriptCodeOffset);
                         else
                             arrayVal = scriptData[scriptDataPtr++];
                         break;
                     case VARARR_ENTNOPLUS1:
                         if (scriptData[scriptDataPtr++] == 1)
-                            arrayVal = scriptEng.arrayPosition[scriptData[scriptDataPtr++]] + objectEntityPos;
+                            arrayVal = ScriptArrayPos(scriptData[scriptDataPtr++], opcode, scriptCodeOffset) + objectEntityPos;
                         else
                             arrayVal = scriptData[scriptDataPtr++] + objectEntityPos;
                         break;
                     case VARARR_ENTNOMINUS1:
                         if (scriptData[scriptDataPtr++] == 1)
-                            arrayVal = objectEntityPos - scriptEng.arrayPosition[scriptData[scriptDataPtr++]];
+                            arrayVal = objectEntityPos - ScriptArrayPos(scriptData[scriptDataPtr++], opcode, scriptCodeOffset);
                         else
                             arrayVal = objectEntityPos - scriptData[scriptDataPtr++];
                         break;
@@ -3429,7 +3468,7 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
                 if (scriptTraceEnabled)
                     printf("   in  p%d %s[%d]\n", i, ScriptVarName(varID), arrayVal);
                 if (arrayVal < 0 || arrayVal >= ENTITY_COUNT) {
-                    ReportScriptRange("read", arrayVal, varID, opcode, scriptCodeOffset);
+                    ReportScriptRange("read", ScriptVarName(varID), arrayVal, opcode, scriptCodeOffset);
                     arrayVal = 0;
                 }
 #endif
@@ -5682,19 +5721,19 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
                     case VARARR_NONE: arrayVal = objectEntityPos; break;
                     case VARARR_ARRAY:
                         if (scriptData[scriptDataPtr++] == 1)
-                            arrayVal = scriptEng.arrayPosition[scriptData[scriptDataPtr++]];
+                            arrayVal = ScriptArrayPos(scriptData[scriptDataPtr++], opcode, scriptCodeOffset);
                         else
                             arrayVal = scriptData[scriptDataPtr++];
                         break;
                     case VARARR_ENTNOPLUS1:
                         if (scriptData[scriptDataPtr++] == 1)
-                            arrayVal = objectEntityPos + scriptEng.arrayPosition[scriptData[scriptDataPtr++]];
+                            arrayVal = objectEntityPos + ScriptArrayPos(scriptData[scriptDataPtr++], opcode, scriptCodeOffset);
                         else
                             arrayVal = objectEntityPos + scriptData[scriptDataPtr++];
                         break;
                     case VARARR_ENTNOMINUS1:
                         if (scriptData[scriptDataPtr++] == 1)
-                            arrayVal = objectEntityPos - scriptEng.arrayPosition[scriptData[scriptDataPtr++]];
+                            arrayVal = objectEntityPos - ScriptArrayPos(scriptData[scriptDataPtr++], opcode, scriptCodeOffset);
                         else
                             arrayVal = objectEntityPos - scriptData[scriptDataPtr++];
                         break;
@@ -5707,7 +5746,7 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
                 if (scriptTraceEnabled)
                     printf("   out p%d %s[%d] = %d\n", i, ScriptVarName(varID), arrayVal, scriptEng.operands[i]);
                 if (arrayVal < 0 || arrayVal >= ENTITY_COUNT) {
-                    ReportScriptRange("write", arrayVal, varID, opcode, scriptCodeOffset);
+                    ReportScriptRange("write", ScriptVarName(varID), arrayVal, opcode, scriptCodeOffset);
                     arrayVal = 0;
                 }
 #endif

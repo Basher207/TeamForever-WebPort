@@ -330,6 +330,24 @@
 				});
 			}],
 
+			// After the wasm runtime is up but still before main() - the only
+			// window where an export may legally be called and the engine's own
+			// device and file setup has not run yet. preRun is too early: calling
+			// an export there aborts outright under ASSERTIONS.
+			// Not an arrow function: emscripten invokes this as a method of the
+			// module, and `this` is the only handle on it here - the factory's
+			// promise has not resolved yet, so `engine` is still unset.
+			onRuntimeInitialized: function () {
+				if (!SAFE_BUILD) return;
+				try {
+					this._RSDK_SetForceLog(1);
+					RetroLog.info("early engine logging enabled");
+				} catch (err) {
+					console.warn("[boot] could not enable early logging:", err);
+					RetroLog.warn("could not enable early logging: " + err);
+				}
+			},
+
 			onEngineStarted: () => {
 				ui.boot.classList.add("hidden");
 				document.title = titleForGame();

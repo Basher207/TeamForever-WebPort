@@ -9,7 +9,7 @@ extern bool endLine;
 inline void PrintLog(const char *msg, ...)
 {
 #ifndef RETRO_DISABLE_LOG
-    if (engineDebugMode) {
+    if (engineDebugMode || forceDebugLog) {
         char buffer[0x100];
 
         // make the full string
@@ -49,7 +49,7 @@ inline void PrintLog(const char *msg, ...)
 inline void PrintLog(const ushort *msg)
 {
 #ifndef RETRO_DISABLE_LOG
-    if (engineDebugMode) {
+    if (engineDebugMode || forceDebugLog) {
         int mPos = 0;
         while (msg[mPos]) {
             printf("%lc", (ushort)msg[mPos]);

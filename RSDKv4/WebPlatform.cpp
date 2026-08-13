@@ -266,6 +266,12 @@ EMSCRIPTEN_KEEPALIVE void RSDK_SetDebugMode(int enabled)
     Engine.devMenu  = enabled != 0;
 }
 
+// Same, but survives InitUserdata reading settings.ini over the top, so it can
+// be set from preRun and catch the logging from device and file setup. Those
+// lines run before main() gets anywhere near an exported function, and they are
+// the ones that say why something came up disabled.
+EMSCRIPTEN_KEEPALIVE void RSDK_SetForceLog(int enabled) { forceDebugLog = enabled != 0; }
+
 // Whether the engine currently considers a button held, after the keyboard,
 // gamepad and touch sources have been merged. Exposed so the page (and the
 // browser console) can confirm input is actually landing.

@@ -337,6 +337,7 @@ enum RetroGameType {
 #if !RETRO_USE_ORIGINAL_CODE
 extern bool usingCWD;
 extern bool engineDebugMode;
+extern bool forceDebugLog;
 #endif
 
 // Utils

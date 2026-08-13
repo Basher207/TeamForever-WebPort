@@ -869,6 +869,17 @@ void LoadSfx(char *filePath, byte sfxID)
 }
 void PlaySfx(int sfx, bool loop)
 {
+#if !RETRO_USE_ORIGINAL_CODE
+    // Without a device, LoadSfx() returns before filling the slot, so every
+    // entry is named but empty and its buffer is null. PlayMusic and LoadSfx
+    // both check this; this one never did.
+    if (!audioEnabled)
+        return;
+
+    if (sfx < 0 || sfx >= SFX_COUNT)
+        return;
+#endif
+
     LockAudioDevice();
     int sfxChannelID = -1;
     for (int c = 0; c < CHANNEL_COUNT; ++c) {
@@ -877,6 +888,15 @@ void PlaySfx(int sfx, bool loop)
             break;
         }
     }
+
+#if !RETRO_USE_ORIGINAL_CODE
+    // Every channel busy with another effect leaves this at -1, and indexing
+    // the array with it writes just before the array rather than into it.
+    if (sfxChannelID < 0) {
+        UnlockAudioDevice();
+        return;
+    }
+#endif
 
     ChannelInfo *sfxInfo  = &sfxChannels[sfxChannelID];
     sfxInfo->sfxID        = sfx;

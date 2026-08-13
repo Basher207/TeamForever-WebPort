@@ -3,6 +3,11 @@
 #if !RETRO_USE_ORIGINAL_CODE
 bool usingCWD        = false;
 bool engineDebugMode = false;
+// Separate from engineDebugMode because that one is overwritten by settings.ini
+// during InitUserdata. This can be set before main() runs, which is the only way
+// to see the log lines from device and file initialisation - the ones that
+// explain why a subsystem came up disabled.
+bool forceDebugLog = false;
 #endif
 
 #if RETRO_PLATFORM == RETRO_ANDROID

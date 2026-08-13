@@ -201,7 +201,9 @@
 						return;
 					}
 					console.log(`[boot] using ${found.name} from ${file.name}`);
-					setStatus("Found " + found.name.split("/").pop() + "…");
+					// Full path, not just the base name: which entry was chosen out
+					// of an archive matters when the pick turns out to be wrong.
+					setStatus(`Found ${found.name} (${(found.bytes.length / 1048576).toFixed(1)} MB)`);
 					bytes = found.bytes;
 				} catch (err) {
 					fail("Couldn't read that file as an archive.\n" +
@@ -239,6 +241,21 @@
 	}
 
 	document.getElementById("btn-forget").addEventListener("click", changeDataFile);
+
+	// A button rather than a documented URL parameter: editing a query string on
+	// a phone is miserable, and a stale cached page can hand back a boot.js that
+	// has never heard of the parameter, which looks exactly like the flag being
+	// ignored. The button always comes from the same file that reads it.
+	document.getElementById("log-safe").addEventListener("click", () => {
+		const url = new URL(location.href);
+
+		if (SAFE_BUILD) url.searchParams.delete("safe");
+		else url.searchParams.set("safe", "1");
+
+		// Defeat any cached copy of the page itself, not just of its assets.
+		url.searchParams.set("r", String(Date.now()));
+		location.replace(url.toString());
+	});
 
 	// The same action from the log panel. Duplicated on purpose: the log is what
 	// is on screen when the game will not start, and the settings button behind
@@ -414,7 +431,11 @@
 	ui.play.addEventListener("click", start);
 
 	RetroLog.attach();
-	RetroLog.info(`page ${location.pathname} · ${navigator.userAgent}`);
+	// The full URL, not just the path: a query parameter that failed to take
+	// effect is indistinguishable from one that was never there otherwise.
+	RetroLog.info(`page ${location.href}`);
+	RetroLog.info(navigator.userAgent);
+	RetroLog.info(`engine build: ${WASM_DIR}${BUILD ? " v=" + BUILD : " (unstamped)"}`);
 
 	// ?debug=1 turns on the engine's own logging, which is off by default, so a
 	// black screen can be investigated without rebuilding anything.

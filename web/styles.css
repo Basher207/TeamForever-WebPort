@@ -289,6 +289,10 @@ html, body {
 
 /* ==========================  startup log  =============================== */
 
+/* Deliberately below the boot screen (60). Raising it above meant the panel sat
+   on top of the Play button, and a log that blocks the thing you came to press
+   is a worse bug than one you cannot read for a moment. The boot screen is
+   opaque and reports its own errors; the log surfaces the instant it hides. */
 #log {
 	position: fixed;
 	left: calc(var(--safe-l) + 8px);

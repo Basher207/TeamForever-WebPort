@@ -283,3 +283,8 @@ flatpak/*.apk
 build-dir
 dependencies/mac/OggAndVorbis.xcodeproj/project.xcworkspace/xcuserdata
 dependencies/mac/SDL2
+
+# Web / WebAssembly build
+web/dist/
+# game data belongs to whoever owns a copy of the game, never to this repo
+web/data/

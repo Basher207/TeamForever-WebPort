@@ -330,6 +330,15 @@ void ReleaseInputDevices()
     controllers.clear();
 }
 
+#if RETRO_PLATFORM == RETRO_EMSCRIPTEN
+// The browser's on-screen controls sit alongside the keyboard rather than
+// replacing it, so a phone user and a keyboard user get identical behaviour and
+// either can be used at any time.
+#define RETRO_VIRTUAL_HELD(i) (webInputHeld[i] != 0)
+#else
+#define RETRO_VIRTUAL_HELD(i) (false)
+#endif
+
 void ProcessInput()
 {
 #if RETRO_USING_SDL2
@@ -338,7 +347,7 @@ void ProcessInput()
 
     if (inputType == 0) {
         for (int i = 0; i < INPUT_ANY; i++) {
-            if (keyState[inputDevice[i].keyMappings]) {
+            if (keyState[inputDevice[i].keyMappings] || RETRO_VIRTUAL_HELD(i)) {
                 inputDevice[i].setHeld();
                 if (!inputDevice[INPUT_ANY].hold)
                     inputDevice[INPUT_ANY].setHeld();
@@ -349,7 +358,7 @@ void ProcessInput()
     }
     else if (inputType == 1) {
         for (int i = 0; i < INPUT_ANY; i++) {
-            if (getControllerButton(inputDevice[i].contMappings)) {
+            if (getControllerButton(inputDevice[i].contMappings) || RETRO_VIRTUAL_HELD(i)) {
                 inputDevice[i].setHeld();
                 if (!inputDevice[INPUT_ANY].hold)
                     inputDevice[INPUT_ANY].setHeld();
@@ -361,7 +370,7 @@ void ProcessInput()
 
     bool isPressed = false;
     for (int i = 0; i < INPUT_BUTTONCOUNT; i++) {
-        if (keyState[inputDevice[i].keyMappings]) {
+        if (keyState[inputDevice[i].keyMappings] || RETRO_VIRTUAL_HELD(i)) {
             isPressed = true;
             break;
         }

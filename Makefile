@@ -10,7 +10,10 @@ PROFILE		?= 0
 STRIP		?= strip
 
 # -fsigned-char required to prevent hang in LoadStageCollisions
-CFLAGS		?= -fsigned-char -std=c++17
+CFLAGS		?= -fsigned-char
+# kept out of CFLAGS so it never reaches the C sources - emcc rejects a C++
+# standard on a .c file outright rather than just warning about it
+CXXSTD		?= -std=c++17
 
 # =============================================================================
 # Detect default platform if not explicitly specified
@@ -68,8 +71,14 @@ endif
 
 # =============================================================================
 
-CFLAGS += `$(PKGCONFIG) --cflags sdl2 ogg vorbis theora vorbisfile theoradec`
-LIBS   += `$(PKGCONFIG) --libs-only-l --libs-only-L sdl2 ogg vorbis theora vorbisfile theoradec`
+# Platforms that supply these themselves (Emscripten pulls them in as ports)
+# blank this out in their .cfg
+PKGCONFIG_DEPS ?= sdl2 ogg vorbis theora vorbisfile theoradec
+
+ifneq ($(strip $(PKGCONFIG_DEPS)),)
+CFLAGS += `$(PKGCONFIG) --cflags $(PKGCONFIG_DEPS)`
+LIBS   += `$(PKGCONFIG) --libs-only-l --libs-only-L $(PKGCONFIG_DEPS)`
+endif
 
 #CFLAGS += -Wno-strict-aliasing -Wno-narrowing -Wno-write-strings
 
@@ -112,12 +121,17 @@ SOURCES = \
     RSDKv4/Text         \
     RSDKv4/Userdata     \
     RSDKv4/Video        \
+    RSDKv4/WebPlatform  \
     RSDKv4/main         \
     RSDKv4/fcaseopen    \
     RSDKv4/NativeObjects/All                \
-    dependencies/all/theoraplay/theoraplay  \
     dependencies/all/tinyxml2/tinyxml2
-	
+
+# theoraplay is the libtheora wrapper behind Ogg Theora playback; platforms
+# without a libtheora (Emscripten) blank this out in their .cfg
+THEORAPLAY_SOURCES ?= dependencies/all/theoraplay/theoraplay
+SOURCES += $(THEORAPLAY_SOURCES)
+
 ifneq ($(FORCE_CASE_INSENSITIVE),)
 	CXXFLAGS_ALL += -DFORCE_CASE_INSENSITIVE
 endif
@@ -141,12 +155,12 @@ $(OBJDIR)/%.o: %.c
 $(OBJDIR)/%.o: %.cpp
 	@mkdir -p $(@D)
 	@echo -n Compiling $<...
-	$(CXX) -c $(CFLAGS) $(INCLUDES) $(DEFINES) $< -o $@
+	$(CXX) -c $(CFLAGS) $(CXXSTD) $(INCLUDES) $(DEFINES) $< -o $@
 	@echo " Done!"
 
 $(BINPATH): $(OBJDIR) $(OBJECTS)
 	@echo -n Linking...
-	$(CXX) $(CFLAGS) $(LDFLAGS) $(OBJECTS) -o $@ $(LIBS)
+	$(CXX) $(CFLAGS) $(CXXSTD) $(LDFLAGS) $(OBJECTS) -o $@ $(LIBS)
 	@echo " Done!"
 	$(STRIP) $@
 

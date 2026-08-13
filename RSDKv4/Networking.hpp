@@ -1,20 +1,15 @@
 #ifndef NETWORKING_H
 #define NETWORKING_H
 
-#if RETRO_USE_NETWORKING
-#include <thread>
-#include <memory>
-
 #define PACKET_SIZE 0x1000
 
-extern char networkHost[64];
-extern char networkGame[7];
-extern int networkPort;
-
-extern float lastPing;
-extern int dcError;
-extern bool waitingForPing;
-extern bool waitForVerify;
+// ============================================================================
+// The 2P VS API is referenced from the scene loop, the settings file and the
+// native menus regardless of whether a networking backend exists, so the types,
+// state and entry points are always declared. Platforms without a backend
+// (Emscripten - asio has no wasm sockets) get the no-op implementations at the
+// bottom of Networking.cpp, where connecting simply never succeeds.
+// ============================================================================
 
 struct MultiplayerData {
     int type;
@@ -61,9 +56,14 @@ enum ServerHeaders {
     SV_LEAVE = 0xFF
 };
 
-class NetworkSession;
+extern char networkHost[64];
+extern char networkGame[7];
+extern int networkPort;
 
-extern std::shared_ptr<NetworkSession> session;
+extern float lastPing;
+extern int dcError;
+extern bool waitingForPing;
+extern bool waitForVerify;
 
 void InitNetwork();
 void RunNetwork();
@@ -74,6 +74,14 @@ int GetRoomCode();
 void SetRoomCode(int code);
 
 void SetNetworkGameName(int *unused, const char *name);
+
+#if RETRO_USE_NETWORKING
+#include <thread>
+#include <memory>
+
+class NetworkSession;
+
+extern std::shared_ptr<NetworkSession> session;
 
 #endif
 #endif

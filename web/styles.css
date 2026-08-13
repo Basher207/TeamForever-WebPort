@@ -1,0 +1,418 @@
+/* ==========================================================================
+   RSDKv4 Web shell
+   Phone-first: the game canvas takes whatever room is left after the control
+   deck, and the deck moves from "overlaid on the sides" in landscape to "a
+   panel underneath" in portrait so fingers never sit on top of the action.
+   ========================================================================== */
+
+:root {
+	--bg: #05070f;
+	--bg-panel: #0b1020;
+	--bg-raised: #161d33;
+	--line: #26304f;
+	--text: #e8ecf7;
+	--muted: #98a2c0;
+	--accent: #3b82f6;
+	--accent-warm: #f5b301;
+
+	/* live-tuned from the settings sheet */
+	--pad-scale: 1;
+	--pad-opacity: 0.7;
+
+	--safe-t: env(safe-area-inset-top, 0px);
+	--safe-r: env(safe-area-inset-right, 0px);
+	--safe-b: env(safe-area-inset-bottom, 0px);
+	--safe-l: env(safe-area-inset-left, 0px);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	overflow: hidden;
+	background: var(--bg);
+	color: var(--text);
+	font: 500 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+	overscroll-behavior: none;
+	touch-action: none;
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-tap-highlight-color: transparent;
+	-webkit-text-size-adjust: 100%;
+}
+
+#app {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.hidden { display: none !important; }
+
+/* ==========================  game surface  ============================== */
+
+#stage {
+	position: relative;
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #000;
+}
+
+#screen {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+#canvas {
+	display: block;
+	max-width: 100%;
+	max-height: 100%;
+	width: auto;
+	height: auto;
+	background: #000;
+	outline: none;
+	/* the engine renders at 426x240; keep the upscale crisp */
+	image-rendering: pixelated;
+	image-rendering: crisp-edges;
+	touch-action: none;
+}
+
+/* ==========================  control deck  ============================== */
+
+#controls {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	z-index: 20;
+	opacity: var(--pad-opacity);
+	transition: opacity .18s ease;
+}
+
+#controls .pad { position: absolute; pointer-events: auto; }
+
+/* --- d-pad --- */
+
+.pad-dpad {
+	left: calc(var(--safe-l) + 14px);
+	bottom: calc(var(--safe-b) + 14px);
+	width: calc(148px * var(--pad-scale));
+	height: calc(148px * var(--pad-scale));
+	touch-action: none;
+}
+
+.pad-dpad svg { width: 100%; height: 100%; display: block; }
+
+.dpad-plate path {
+	fill: rgba(16, 22, 41, .82);
+	stroke: rgba(150, 170, 220, .45);
+	stroke-width: 1.5;
+	stroke-linejoin: round;
+}
+
+.dpad-arrows .arrow {
+	fill: rgba(220, 232, 255, .55);
+	transition: fill .08s linear;
+}
+
+/* lit while that direction is held */
+.pad-dpad.up    .arrow-up,
+.pad-dpad.down  .arrow-down,
+.pad-dpad.left  .arrow-left,
+.pad-dpad.right .arrow-right { fill: var(--accent-warm); }
+
+/* the little travelling knob that follows the thumb */
+.dpad-nub {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 30%;
+	height: 30%;
+	margin: -15% 0 0 -15%;
+	border-radius: 50%;
+	background: rgba(210, 224, 255, .28);
+	border: 1.5px solid rgba(190, 210, 255, .5);
+	pointer-events: none;
+	transition: background .1s linear;
+}
+.pad-dpad.active .dpad-nub { background: rgba(59, 130, 246, .55); }
+
+/* --- face buttons --- */
+
+.pad-face {
+	right: calc(var(--safe-r) + 14px);
+	bottom: calc(var(--safe-b) + 14px);
+	width: calc(176px * var(--pad-scale));
+	height: calc(150px * var(--pad-scale));
+	touch-action: none;
+}
+
+.btn {
+	position: absolute;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 50%;
+	border: 1.5px solid rgba(150, 170, 220, .45);
+	background: rgba(16, 22, 41, .82);
+	color: rgba(220, 232, 255, .7);
+	font: 700 15px/1 system-ui, sans-serif;
+	letter-spacing: .04em;
+	padding: 0;
+	touch-action: none;
+	transition: background .08s linear, transform .08s ease, color .08s linear;
+}
+
+.btn.held {
+	background: var(--accent);
+	border-color: #93c5fd;
+	color: #fff;
+	transform: scale(.94);
+}
+
+/* laid out like a Genesis pad: A big and low-right, C highest */
+.btn-a { width: calc(84px * var(--pad-scale)); height: calc(84px * var(--pad-scale)); right: 0;                            bottom: 0; font-size: calc(20px * var(--pad-scale)); }
+.btn-b { width: calc(64px * var(--pad-scale)); height: calc(64px * var(--pad-scale)); right: calc(78px * var(--pad-scale)); bottom: calc(26px * var(--pad-scale)); }
+.btn-c { width: calc(56px * var(--pad-scale)); height: calc(56px * var(--pad-scale)); right: calc(142px * var(--pad-scale)); bottom: calc(58px * var(--pad-scale)); }
+
+/* --- start --- */
+
+.pad-system {
+	left: 50%;
+	transform: translateX(-50%);
+	bottom: calc(var(--safe-b) + 14px);
+}
+
+.btn-start {
+	position: static;
+	border-radius: 999px;
+	width: auto;
+	height: calc(38px * var(--pad-scale));
+	padding: 0 calc(18px * var(--pad-scale));
+	font-size: calc(12px * var(--pad-scale));
+}
+
+/* --- utility (fullscreen / settings) --- */
+
+.pad-utility {
+	top: calc(var(--safe-t) + 10px);
+	right: calc(var(--safe-r) + 10px);
+	display: flex;
+	gap: 8px;
+}
+
+.icon-btn {
+	width: 38px;
+	height: 38px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 10px;
+	border: 1px solid var(--line);
+	background: rgba(11, 16, 32, .8);
+	color: var(--text);
+	padding: 0;
+	cursor: pointer;
+}
+.icon-btn svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.icon-btn:active { background: var(--bg-raised); }
+
+/* ------------------------  portrait layout  ---------------------------- */
+/* Controls get their own panel below the screen instead of covering it. */
+
+@media (orientation: portrait) {
+	#app { flex-direction: column; }
+
+	/* 56vw is the engine's 426x240 aspect: the screen fills the width exactly */
+	#stage {
+		flex: 0 0 auto;
+		height: min(46vh, 56vw);
+		margin-top: var(--safe-t);
+	}
+
+	#controls {
+		position: relative;
+		inset: auto;
+		flex: 1 1 auto;
+		min-height: 0;
+		background: linear-gradient(180deg, var(--bg-panel), var(--bg));
+		border-top: 1px solid var(--line);
+		/* nothing is being covered up down here, so the pads read at full strength */
+		opacity: 1;
+	}
+
+	/* Widths are in vw and must not collide, so they are budgeted across the
+	   viewport rather than picked independently:
+	     d-pad  4..40vw          face pad  52..96vw
+	     C 45..60vw   B 59..76vw   A 75..96vw
+	   which leaves a 5vw gutter between the d-pad and the nearest face button. */
+
+	.pad-dpad {
+		left: 4vw;
+		bottom: calc(var(--safe-b) + 7vh);
+		width: calc(36vw * var(--pad-scale));
+		height: calc(36vw * var(--pad-scale));
+	}
+
+	.pad-face {
+		right: 4vw;
+		bottom: calc(var(--safe-b) + 7vh);
+		width: calc(44vw * var(--pad-scale));
+		height: calc(34vw * var(--pad-scale));
+	}
+
+	.btn-a { width: calc(21vw * var(--pad-scale)); height: calc(21vw * var(--pad-scale)); font-size: calc(5vw * var(--pad-scale)); }
+	.btn-b { width: calc(17vw * var(--pad-scale)); height: calc(17vw * var(--pad-scale)); right: calc(20vw * var(--pad-scale)); bottom: calc(7vw * var(--pad-scale)); }
+	.btn-c { width: calc(15vw * var(--pad-scale)); height: calc(15vw * var(--pad-scale)); right: calc(36vw * var(--pad-scale)); bottom: calc(15vw * var(--pad-scale)); }
+
+	.btn-start { height: calc(42px * var(--pad-scale)); font-size: calc(13px * var(--pad-scale)); }
+
+	.pad-system { bottom: calc(var(--safe-b) + 2vh); }
+	.pad-utility { top: 10px; right: calc(var(--safe-r) + 10px); }
+}
+
+/* ---------------------  pointer devices  ------------------------------- */
+/* A mouse means a desktop browser: keep the utility buttons, drop the pads. */
+
+@media (hover: hover) and (pointer: fine) {
+	.pad-dpad, .pad-face, .pad-system { display: none; }
+}
+
+/* ==========================  settings sheet  ============================ */
+
+.sheet {
+	position: fixed;
+	inset: 0;
+	z-index: 40;
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+	background: rgba(3, 5, 12, .6);
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+}
+
+.sheet-inner {
+	width: min(520px, 100%);
+	max-height: 88vh;
+	overflow-y: auto;
+	background: var(--bg-panel);
+	border: 1px solid var(--line);
+	border-bottom: 0;
+	border-radius: 18px 18px 0 0;
+	padding: 18px 18px calc(18px + var(--safe-b));
+	box-shadow: 0 -20px 60px rgba(0, 0, 0, .6);
+}
+
+.sheet-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 6px;
+}
+.sheet-head h2 { margin: 0; font-size: 17px; font-weight: 700; }
+
+.row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px 2px;
+	border-bottom: 1px solid rgba(38, 48, 79, .6);
+}
+.row > span { flex: 1 1 auto; }
+.row output { min-width: 46px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.row input[type=range] { flex: 0 0 44%; accent-color: var(--accent); }
+.row input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--accent); }
+
+.sheet-note { color: var(--muted); font-size: 13px; margin-top: 14px; }
+.sheet-note p { margin: 8px 0; }
+.sheet-note kbd {
+	background: var(--bg-raised);
+	border: 1px solid var(--line);
+	border-radius: 5px;
+	padding: 1px 5px;
+	font: 600 12px/1 ui-monospace, monospace;
+	color: var(--text);
+}
+
+.link-btn {
+	background: none;
+	border: 0;
+	padding: 0;
+	color: var(--accent);
+	font: inherit;
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+/* ==========================  boot screen  =============================== */
+
+#boot {
+	position: fixed;
+	inset: 0;
+	z-index: 60;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 24px;
+	background: radial-gradient(120% 90% at 50% 0%, #16224a 0%, var(--bg) 62%);
+	text-align: center;
+}
+
+.boot-inner { width: min(460px, 100%); }
+
+.boot-logo svg { width: 68px; height: 68px; fill: none; stroke: var(--accent-warm); stroke-width: 4; }
+
+#boot h1 { margin: 14px 0 6px; font-size: 22px; font-weight: 800; letter-spacing: .01em; }
+#boot-status { margin: 0; color: var(--muted); font-size: 14px; min-height: 20px; }
+
+.progress {
+	margin: 18px auto 0;
+	width: min(280px, 90%);
+	height: 6px;
+	border-radius: 999px;
+	background: var(--bg-raised);
+	overflow: hidden;
+}
+#boot-bar { height: 100%; width: 0; background: var(--accent); transition: width .15s linear; }
+
+.boot-help { color: var(--muted); font-size: 13.5px; margin: 18px 0 14px; }
+.boot-help code {
+	background: var(--bg-raised);
+	border-radius: 5px;
+	padding: 1px 5px;
+	font: 600 12.5px/1 ui-monospace, monospace;
+	color: var(--text);
+}
+
+.file-btn input { display: none; }
+.file-btn span,
+.play-btn {
+	display: inline-block;
+	margin-top: 4px;
+	padding: 13px 30px;
+	border: 0;
+	border-radius: 999px;
+	background: var(--accent);
+	color: #fff;
+	font: 700 15px/1 system-ui, sans-serif;
+	cursor: pointer;
+}
+.play-btn { margin-top: 20px; padding: 15px 44px; font-size: 17px; }
+.file-btn span:active, .play-btn:active { filter: brightness(.9); }
+
+.boot-error {
+	margin-top: 16px;
+	color: #fca5a5;
+	font-size: 13.5px;
+	white-space: pre-wrap;
+}

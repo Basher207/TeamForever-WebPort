@@ -9,7 +9,16 @@
 #define RETRO_USE_ORIGINAL_CODE (0)
 
 #define RETRO_USE_MOD_LOADER (!RETRO_USE_ORIGINAL_CODE && 1)
+
+#ifdef __EMSCRIPTEN__
+// asio has no usable backend in wasm and libtheora has no emscripten port, so
+// both are compiled out of the web build (see Makefile_cfgs/Platforms/Emscripten.cfg)
+#define RETRO_USE_NETWORKING (0)
+#define RETRO_USE_VIDEO      (0)
+#else
 #define RETRO_USE_NETWORKING (!RETRO_USE_ORIGINAL_CODE && 1)
+#define RETRO_USE_VIDEO      (1)
+#endif
 
 // ================
 // STANDARD LIBS
@@ -39,12 +48,18 @@ typedef unsigned int uint;
 #define RETRO_UWP   (7)
 #define RETRO_LINUX (8)
 #define RETRO_SWITCH (9)
+#define RETRO_EMSCRIPTEN (10)
 
 // Platform types (Game manages platform-specific code such as HUD position using this rather than the above)
 #define RETRO_STANDARD (0)
 #define RETRO_MOBILE   (1)
 
-#if defined _WIN32
+#if defined __EMSCRIPTEN__
+// checked first: emscripten also advertises itself as a unix-ish target
+#define RETRO_PLATFORM   (RETRO_EMSCRIPTEN)
+#define RETRO_DEVICETYPE (RETRO_STANDARD)
+
+#elif defined _WIN32
 
 #if defined WINAPI_FAMILY
 #if WINAPI_FAMILY != WINAPI_FAMILY_APP
@@ -90,12 +105,24 @@ typedef unsigned int uint;
 #define RETRO_USING_MOUSE
 #define RETRO_USING_TOUCH
 
+#if RETRO_PLATFORM == RETRO_EMSCRIPTEN
+// Layout of the browser's virtual filesystem:
+//   BASE_PATH            in-memory, holds the data file the page hands us
+//   RETRO_WEB_SAVE_PATH  IDBFS mount, holds settings.ini and the save files
+#ifndef BASE_PATH
+#define BASE_PATH "/rsdk/"
+#endif
+#ifndef RETRO_WEB_SAVE_PATH
+#define RETRO_WEB_SAVE_PATH BASE_PATH "save/"
+#endif
+#endif
+
 #ifndef BASE_PATH
 #define BASE_PATH ""
 #endif
 
 #if RETRO_PLATFORM == RETRO_WIN || RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_LINUX || RETRO_PLATFORM == RETRO_UWP                       \
-    || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_SWITCH
+    || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_SWITCH || RETRO_PLATFORM == RETRO_EMSCRIPTEN
 #define RETRO_USING_SDL1 (0)
 #define RETRO_USING_SDL2 (1)
 #else // Since its an else & not an elif these platforms probably aren't supported yet
@@ -202,6 +229,10 @@ typedef unsigned int uint;
 #define RETRO_GAMEPLATFORMID (UAP_GetRetroGamePlatformId())
 #elif RETRO_PLATFORM == RETRO_SWITCH
 #define RETRO_GAMEPLATFORMID (RETRO_SWITCH)
+#elif RETRO_PLATFORM == RETRO_EMSCRIPTEN
+// scripts only understand the 7 original platforms, so the web build presents
+// itself as the desktop build (the touch overlay lives in the browser, not in-game)
+#define RETRO_GAMEPLATFORMID (RETRO_WIN)
 #else
 #error Unspecified RETRO_GAMEPLATFORMID
 #endif
@@ -282,7 +313,8 @@ enum RetroGameType {
 #define SCREEN_YSIZE   (240)
 #define SCREEN_CENTERY (SCREEN_YSIZE / 2)
 
-#if RETRO_PLATFORM == RETRO_WIN || RETRO_PLATFORM == RETRO_UWP || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_LINUX
+#if RETRO_PLATFORM == RETRO_WIN || RETRO_PLATFORM == RETRO_UWP || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_LINUX                   \
+    || RETRO_PLATFORM == RETRO_EMSCRIPTEN
 #if RETRO_USING_SDL2
 #include <SDL.h>
 #elif RETRO_USING_SDL1
@@ -333,6 +365,7 @@ extern bool engineDebugMode;
 #include "Debug.hpp"
 #include "ModAPI.hpp"
 #include "Video.hpp"
+#include "WebPlatform.hpp"
 
 // Native Entities
 #include "NativeObjects.hpp"
@@ -415,6 +448,13 @@ public:
 
     void Init();
     void Run();
+
+    // One iteration of the main loop, split out so platforms that can't block
+    // (the browser, which has to give control back for every animation frame)
+    // can drive the engine a frame at a time.
+    void StepFrame();
+    // Teardown that used to live directly after the main loop
+    void Release();
 
     bool LoadGameConfig(const char *filepath);
 #if RETRO_USE_MOD_LOADER

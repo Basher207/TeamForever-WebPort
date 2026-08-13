@@ -74,6 +74,15 @@ If you want to transfer your save(s) from the official mobile version(s), the **
   * `mklink /D SDL ..\..\..\dependencies\android\SDL`
 * Open `android/` in Android Studio, install the NDK and everything else that it asks for, and build.
 
+## Web (WebAssembly)
+The engine also builds to WebAssembly, so it runs in a browser — including on a phone, with on-screen touch controls.
+* Install the [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html) and activate it (`source ./emsdk/emsdk_env.sh`).
+* Clone the repo recursively, then run `./web/build.sh` from the repo root.
+* Run `./web/serve.py` and open the address it prints. On a phone, use the LAN address it shows.
+* The build ships no game assets: the page asks for the `Data.rsdk` from your own copy of the game the first time, then caches it in the browser.
+
+The page adds a d-pad and A/B/C/START buttons that support diagonals, sliding between buttons and multitouch, and it installs to a home screen as a fullscreen offline app. Keyboard and gamepad keep working alongside them. Networking and Theora video playback are compiled out of this target only — see [`web/README.md`](./web/README.md) for the details, hosting notes and troubleshooting.
+
 ## Unofficial Branches
 Follow the installation instructions in the readme of each branch.
 * For the **PlayStation Vita**, go to [Xeeynamo's fork](https://github.com/xeeynamo/Sonic-1-2-2013-Decompilation).

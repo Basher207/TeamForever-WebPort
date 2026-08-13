@@ -344,7 +344,7 @@ void ProcessAudioPlayback(void *userdata, Uint8 *stream, int len)
         // Mix music
         ProcessMusicStream(mix_buffer, samples_to_do * sizeof(Sint16));
 
-#if RETRO_USING_SDL2
+#if RETRO_USING_SDL2 && RETRO_USE_VIDEO
         if (videoPlaying == 1) {
             const size_t bytes_to_do = samples_to_do * sizeof(Sint16);
 

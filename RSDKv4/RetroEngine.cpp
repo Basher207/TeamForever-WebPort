@@ -499,6 +499,11 @@ void RetroEngine::Run()
 {
     Engine.deltaTime = 0.0f;
 
+#if RETRO_PLATFORM == RETRO_EMSCRIPTEN
+    // The browser owns the event loop, so hand it a per-frame callback instead of
+    // spinning here. This never returns; teardown happens from the callback.
+    RunWebMainLoop();
+#else
     unsigned long long targetFreq = SDL_GetPerformanceFrequency() / Engine.refreshRate;
     unsigned long long curTicks   = 0;
     unsigned long long prevTicks  = 0;
@@ -515,13 +520,27 @@ void RetroEngine::Run()
 
         Engine.deltaTime = 1.0 / 60;
 #endif
-        running = processEvents();
 
         if (lastFPS != Engine.refreshRate) {
 		    targetFreq = SDL_GetPerformanceFrequency() / Engine.refreshRate;
 			lastFPS = Engine.refreshRate;
 		}
-		
+
+        StepFrame();
+    }
+
+    Release();
+#endif //! RETRO_PLATFORM == RETRO_EMSCRIPTEN
+}
+
+// One pass of what used to be the body of Run()'s while loop. The extra block
+// below keeps the original indentation so this reads as a move rather than a
+// rewrite of a hundred lines of platform-conditional code.
+void RetroEngine::StepFrame()
+{
+    {
+        running = processEvents();
+
         // Focus Checks
 		/*
         if (!(disableFocusPause & 2)) {
@@ -619,7 +638,10 @@ void RetroEngine::Run()
 #endif
         }
     }
+}
 
+void RetroEngine::Release()
+{
     ReleaseAudioDevice();
     StopVideoPlayback();
     ReleaseRenderDevice();

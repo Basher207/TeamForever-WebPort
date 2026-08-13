@@ -400,4 +400,30 @@ int GetRoomCode() { return session->room; }
 void SetRoomCode(int code) { session->room = code; }
 
 void SetNetworkGameName(int *a1, const char *name) { StrCopy(networkGame, name); }
-#endif
+
+#else // !RETRO_USE_NETWORKING
+
+// No socket backend on this platform (asio has nothing to build on under wasm).
+// The state below still exists because the settings file, the scene loop and the
+// native menus read it; a connection simply never comes up, which the menus
+// already handle as "multiplayer unavailable".
+
+char networkHost[64]  = "127.0.0.1";
+char networkGame[7]   = "SONIC2";
+int networkPort       = 50;
+int dcError           = 0;
+float lastPing        = 0;
+bool waitingForPing   = false;
+bool waitForVerify    = false;
+
+void InitNetwork() {}
+void RunNetwork() {}
+void SendData(bool verify) {}
+void DisconnectNetwork(bool finalClose) {}
+void SendServerPacket(ServerPacket &send, bool repeat) {}
+int GetRoomCode() { return 0; }
+void SetRoomCode(int code) {}
+
+void SetNetworkGameName(int *a1, const char *name) { StrCopy(networkGame, name); }
+
+#endif //! RETRO_USE_NETWORKING

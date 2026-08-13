@@ -19,6 +19,8 @@ int vidBaseTicks = 0;
 
 bool videoSkipped = false;
 
+#if RETRO_USE_VIDEO
+
 static long videoRead(THEORAPLAY_Io *io, void *buf, long buflen)
 {
     FileIO *file    = (FileIO *)io->userdata;
@@ -370,3 +372,18 @@ void CloseVideoBuffer()
 #endif
     }
 }
+
+#else // !RETRO_USE_VIDEO
+
+// libtheora has no emscripten port, so Ogg Theora playback is compiled out of the
+// web build. The engine calls these unconditionally, so they stay as no-ops and
+// ProcessVideo() reports "nothing is playing" forever.
+
+void PlayVideoFile(char *filePath) { PrintLog("Video playback is not available in this build (%s)", filePath); }
+void UpdateVideoFrame() {}
+int ProcessVideo() { return 0; }
+void StopVideoPlayback() {}
+void SetupVideoBuffer(int width, int height) {}
+void CloseVideoBuffer() {}
+
+#endif //! RETRO_USE_VIDEO

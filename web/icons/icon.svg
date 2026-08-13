@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b2a5e"/>
+      <stop offset="1" stop-color="#05070f"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffd75e"/>
+      <stop offset="0.5" stop-color="#f5b301"/>
+      <stop offset="1" stop-color="#c98600"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- d-pad, bottom left -->
+  <g fill="#8fa6d8" opacity="0.5">
+    <path d="M112 316h30v-30h30v30h30v30h-30v30h-30v-30h-30z"/>
+  </g>
+
+  <!-- three action buttons, bottom right -->
+  <g fill="#8fa6d8" opacity="0.5">
+    <circle cx="330" cy="360" r="17"/>
+    <circle cx="374" cy="340" r="17"/>
+    <circle cx="410" cy="310" r="17"/>
+  </g>
+
+  <!-- ring -->
+  <circle cx="256" cy="206" r="96" fill="none" stroke="url(#ring)" stroke-width="34"/>
+  <circle cx="256" cy="206" r="52" fill="none" stroke="#ffe89a" stroke-width="8" opacity="0.55"/>
+</svg>

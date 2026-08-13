@@ -190,6 +190,9 @@ bool WriteSaveRAMData()
         return false;
     fWrite(saveRAM, sizeof(int), SAVEDATA_SIZE, saveFile);
     fClose(saveFile);
+#if RETRO_PLATFORM == RETRO_EMSCRIPTEN
+    FlagWebSaveDirty();
+#endif
     return true;
 }
 
@@ -199,6 +202,14 @@ void InitUserdata()
     sprintf(gamePath, "%s", BASE_PATH);
 #if RETRO_USE_MOD_LOADER
     sprintf(modsPath, "%s", BASE_PATH);
+#endif
+
+#if RETRO_PLATFORM == RETRO_EMSCRIPTEN
+    // Everything under RETRO_WEB_SAVE_PATH lives on an IDBFS mount the page sets
+    // up before main() runs, so settings and save files survive a page reload.
+    // The data file stays on the in-memory FS at BASE_PATH; it's far too big to
+    // want round-tripping through IndexedDB on every save.
+    sprintf(gamePath, "%s", RETRO_WEB_SAVE_PATH);
 #endif
 
 #if RETRO_PLATFORM == RETRO_OSX
@@ -238,6 +249,8 @@ void InitUserdata()
         sprintf(buffer, "%ssettings.ini", gamePath);
 #elif RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_ANDROID
     sprintf(buffer, "%s/settings.ini", gamePath);
+#elif RETRO_PLATFORM == RETRO_EMSCRIPTEN
+    sprintf(buffer, "%ssettings.ini", gamePath);
 #else
     sprintf(buffer, BASE_PATH "settings.ini");
 #endif
@@ -382,6 +395,12 @@ void InitUserdata()
 #endif
 
         ini.Write(buffer);
+
+#if RETRO_PLATFORM == RETRO_EMSCRIPTEN
+        // First run in this browser: get the freshly written defaults onto the
+        // persistent mount rather than waiting for the first in-game save.
+        FlagWebSaveDirty();
+#endif
     }
     else {
         fClose(file);
@@ -817,6 +836,10 @@ void WriteSettings()
 #endif
 
     ini.Write(buffer, false);
+
+#if RETRO_PLATFORM == RETRO_EMSCRIPTEN
+    FlagWebSaveDirty();
+#endif
 }
 
 void ReadUserdata()
@@ -911,6 +934,10 @@ void WriteUserdata()
     for (int l = 0; l < LEADERBOARD_COUNT; ++l) fWrite(&leaderboards[l].score, 4, 1, userFile);
 
     fClose(userFile);
+
+#if RETRO_PLATFORM == RETRO_EMSCRIPTEN
+    FlagWebSaveDirty();
+#endif
 
     if (Engine.onlineActive) {
         // Load from online

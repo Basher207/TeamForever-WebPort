@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="RSDKv4 (Sonic 1 Forever / Sonic 2 Absolute) running in the browser via WebAssembly, with touch controls.">
+<title>RSDKv4 Web</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ==================== the game itself ==================== -->
+  <div id="stage">
+    <div id="screen">
+      <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+    </div>
+  </div>
+
+  <!-- ==================== on-screen controls ==================== -->
+  <!-- pointer-events are off on the deck itself so taps fall through to the
+       canvas (the engine's own menus are touch-aware); only the pads catch them -->
+  <div id="controls" class="hidden" aria-hidden="true">
+
+    <div class="pad pad-dpad" id="dpad">
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <g class="dpad-plate">
+          <path d="M36 4h28v32h32v28H64v32H36V64H4V36h32z" rx="6"/>
+        </g>
+        <g class="dpad-arrows">
+          <path class="arrow arrow-up"    d="M50 12l9 12H41z"/>
+          <path class="arrow arrow-down"  d="M50 88l-9-12h18z"/>
+          <path class="arrow arrow-left"  d="M12 50l12-9v18z"/>
+          <path class="arrow arrow-right" d="M88 50l-12 9V41z"/>
+        </g>
+      </svg>
+      <div class="dpad-nub" id="dpad-nub"></div>
+    </div>
+
+    <div class="pad pad-face" id="face">
+      <button class="btn btn-c" data-button="C" type="button">C</button>
+      <button class="btn btn-b" data-button="B" type="button">B</button>
+      <button class="btn btn-a" data-button="A" type="button">A</button>
+    </div>
+
+    <div class="pad pad-system">
+      <button class="btn btn-start" data-button="START" type="button">
+        <span>START</span>
+      </button>
+    </div>
+
+    <div class="pad pad-utility">
+      <button class="icon-btn" id="btn-fullscreen" type="button" title="Fullscreen" aria-label="Fullscreen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      </button>
+      <button class="icon-btn" id="btn-settings" type="button" title="Controls settings" aria-label="Controls settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== settings sheet ==================== -->
+  <div id="settings" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="sheet-inner">
+      <div class="sheet-head">
+        <h2 id="settings-title">Touch controls</h2>
+        <button class="icon-btn" id="btn-settings-close" type="button" aria-label="Close">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <label class="row">
+        <span>Show on-screen controls</span>
+        <input type="checkbox" id="opt-enabled" checked>
+      </label>
+
+      <label class="row">
+        <span>Size</span>
+        <input type="range" id="opt-scale" min="70" max="150" step="5" value="100">
+        <output id="out-scale">100%</output>
+      </label>
+
+      <label class="row">
+        <span>Opacity</span>
+        <input type="range" id="opt-opacity" min="20" max="100" step="5" value="70">
+        <output id="out-opacity">70%</output>
+      </label>
+
+      <label class="row">
+        <span>Vibrate on press</span>
+        <input type="checkbox" id="opt-haptics" checked>
+      </label>
+
+      <div class="sheet-note">
+        <p><strong>Keyboard:</strong> arrows move, <kbd>A</kbd>/<kbd>S</kbd>/<kbd>D</kbd> jump, <kbd>Enter</kbd> start,
+           <kbd>Tab</kbd> select. A connected gamepad works too, and all three can be used at once.</p>
+        <p>Progress is saved in this browser. <button class="link-btn" id="btn-forget" type="button">Forget the game data file</button></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== boot / data file screen ==================== -->
+  <div id="boot">
+    <div class="boot-inner">
+      <div class="boot-logo" aria-hidden="true">
+        <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="24"/><circle cx="32" cy="32" r="13"/></svg>
+      </div>
+      <h1 id="boot-title">RSDKv4 Web</h1>
+      <p id="boot-status">Starting up&hellip;</p>
+
+      <div id="boot-progress" class="progress hidden"><div id="boot-bar"></div></div>
+
+      <div id="boot-picker" class="hidden">
+        <p class="boot-help">
+          This is the engine only &mdash; it needs the data file from your own copy of
+          <em>Sonic 1 Forever</em> or <em>Sonic 2 Absolute</em>.
+          Pick the <code>Data.rsdk</code> from your game folder; it stays on your device.
+        </p>
+        <label class="file-btn">
+          <input type="file" id="file-input" accept=".rsdk,application/octet-stream">
+          <span>Choose Data.rsdk</span>
+        </label>
+      </div>
+
+      <button id="boot-play" class="play-btn hidden" type="button">Play</button>
+
+      <p id="boot-error" class="boot-error hidden"></p>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/storage.js"></script>
+<script src="js/controls.js"></script>
+<script src="js/boot.js"></script>
+</body>
+</html>

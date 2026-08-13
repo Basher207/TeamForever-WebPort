@@ -26,6 +26,11 @@
 	// The right revision is a property of the data file, not of the engine, so
 	// there is a build per revision and no way to pick automatically.
 	const REV = params.get("rev") === "0" ? "0" : "";
+
+	// Only one heap-checked build exists and it is revision 2, so asking for both
+	// silently gets you revision 2 - which looks exactly like the revision having
+	// been tried and not helped. Say so instead.
+	const REV_IGNORED = SAFE_BUILD && REV === "0";
 	const WASM_DIR = SAFE_BUILD ? "dist-safe/" : (REV === "0" ? "dist-rev0/" : "dist/");
 	const WASM_LOADER = WASM_DIR + "s1fs2a.js";
 	const DATA_URL = "data/Data.rsdk";      // optional: drop your own copy here
@@ -413,6 +418,10 @@
 		ui.error.classList.add("hidden");
 		setStatus("Loading engine…");
 		if (SAFE_BUILD) RetroLog.warn("using the heap-checked build — expect it to be very slow");
+		if (REV_IGNORED) {
+			RetroLog.warn("rev=0 IGNORED: the heap-checked build is revision 2 only. " +
+			              "Drop safe mode to actually test revision 0.");
+		}
 		setProgress(0.15);
 
 		if (typeof WebAssembly !== "object" || typeof WebAssembly.instantiate !== "function") {

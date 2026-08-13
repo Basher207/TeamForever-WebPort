@@ -390,7 +390,14 @@
 			engine = await createRetroEngine(buildModuleConfig());
 			setProgress(1);
 
-			if (debugRequested) engine.ccall("RSDK_SetDebugMode", null, ["number"], [1]);
+			// The heap-checked build is only ever run to investigate something, and
+			// the engine's own logging is what names the file it failed to load -
+			// which is the usual reason a pointer is null in the first place. No
+			// reason to make anyone ask for both separately.
+			if (debugRequested || SAFE_BUILD) {
+				engine.ccall("RSDK_SetDebugMode", null, ["number"], [1]);
+				RetroLog.info("engine logging enabled");
+			}
 
 			wireEngine();
 		} catch (err) {

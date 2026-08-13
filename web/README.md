@@ -7,7 +7,29 @@ browser is just another target alongside Windows, Linux, Switch and Android.
 No game assets are included. You supply the data file from your own copy of
 Sonic 1 Forever or Sonic 2 Absolute.
 
+**Play it:** https://basher207.github.io/TeamForever-WebPort/
+
 ---
+
+## Hosting
+
+[`.github/workflows/deploy-web.yml`](../.github/workflows/deploy-web.yml) builds
+the engine and publishes this directory to GitHub Pages on every push that
+touches `RSDKv4/`, `web/`, or the build files.
+
+**One-time setup:** in the repository, go to **Settings → Pages → Build and
+deployment** and set **Source** to **GitHub Actions**. The workflow cannot do
+this for you — creating a Pages site that has never existed needs admin rights,
+and the automatic `GITHUB_TOKEN` deliberately lacks them. Once the source is
+set, every deploy from then on is automatic.
+
+The Emscripten SDK is pinned to a known version rather than tracking `latest`,
+and both the SDK and its compiled ports are cached, so a typical run is a couple
+of minutes.
+
+Nothing about the deployment is GitHub-specific — the output is plain static
+files. To host it elsewhere, run `./web/build.sh` and upload `web/` (minus
+`tools/`, `build.sh`, `serve.py` and this README).
 
 ## Build
 

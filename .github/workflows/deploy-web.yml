@@ -86,12 +86,16 @@ jobs:
           echo "--- published files ---"
           find _site -type f | sort
 
+      # One-time repository setup, needed before the first successful run:
+      #   Settings -> Pages -> Build and deployment -> Source -> "GitHub Actions"
+      #
+      # This step cannot do it. Creating a Pages site that has never existed
+      # needs admin rights, and the automatic GITHUB_TOKEN does not have them
+      # (`enablement: true` here fails with "Resource not accessible by
+      # integration"). Once the source is set, every run from then on is
+      # automatic.
       - name: Configure Pages
-        # enablement turns Pages on the first time this runs, so the repository
-        # does not need to be set up by hand beforehand.
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Upload the site
         uses: actions/upload-pages-artifact@v3

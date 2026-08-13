@@ -76,6 +76,9 @@ If you want to transfer your save(s) from the official mobile version(s), the **
 
 ## Web (WebAssembly)
 The engine also builds to WebAssembly, so it runs in a browser — including on a phone, with on-screen touch controls.
+**Play it here: https://basher207.github.io/TeamForever-WebPort/** (pushes to this repo redeploy it automatically).
+
+To build it yourself:
 * Install the [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html) and activate it (`source ./emsdk/emsdk_env.sh`).
 * Clone the repo recursively, then run `./web/build.sh` from the repo root.
 * Run `./web/serve.py` and open the address it prints. On a phone, use the LAN address it shows.

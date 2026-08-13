@@ -138,10 +138,14 @@
           only pick it once.
         </p>
         <label class="file-btn">
-          <input type="file" id="file-input" accept=".rsdk,.zip,application/zip,application/octet-stream">
+          <input type="file" id="file-input"
+                 accept=".rsdk,.zip,.apk,.obb,application/zip,application/vnd.android.package-archive,application/octet-stream">
           <span>Choose your game file</span>
         </label>
-        <p class="boot-hint">Pick <code>Data.rsdk</code>, or a <code>.zip</code> containing it &mdash; no need to unzip first.</p>
+        <p class="boot-hint">
+          <code>Data.rsdk</code>, or a <code>.zip</code>, <code>.apk</code> or <code>.obb</code>
+          containing it &mdash; no need to unpack anything first.
+        </p>
       </div>
 
       <button id="boot-play" class="play-btn hidden" type="button">Play</button>

@@ -170,22 +170,26 @@
 			let bytes = await readPickedFile(file);
 			setProgress(null);
 
-			// Downloads usually arrive zipped, and unzipping on a phone means
-			// leaving the browser to find a file manager. Dig the data file out
-			// here instead so the archive can be picked as-is.
+			// Downloads arrive as archives, and unzipping on a phone means leaving
+			// the browser to find a file manager. Dig the data file out here
+			// instead so the file can be picked exactly as it was downloaded.
+			// .apk and .obb are ZIPs too, so they come through this same path.
 			if (!looksLikeRSDK(bytes) && RetroZip.looksLikeZip(bytes)) {
-				setStatus("Looking inside the archive…");
+				setStatus("Looking inside " + file.name + "…");
 				try {
-					const found = await RetroZip.extractByName(bytes, "Data.rsdk");
+					const found = await RetroZip.findDataFile(bytes, looksLikeRSDK);
 					if (!found) {
-						fail("That archive doesn't contain a Data.rsdk.\n" +
-						     "If it holds another archive inside it, extract that one first.");
+						fail("Couldn't find any game data in that file.\n" +
+						     "It should contain Data.rsdk. If it holds another archive inside it, " +
+						     "you'll need to extract that one first.");
 						return;
 					}
-					bytes = found;
+					console.log(`[boot] using ${found.name} from ${file.name}`);
+					setStatus("Found " + found.name.split("/").pop() + "…");
+					bytes = found.bytes;
 				} catch (err) {
-					fail("Couldn't read that archive.\n" +
-					     "Only .zip is supported here — for .7z or .rar you'll need to extract it yourself.", err);
+					fail("Couldn't read that file as an archive.\n" +
+					     ".zip, .apk and .obb work — for .7z or .rar you'll need to extract it yourself.", err);
 					return;
 				}
 			}

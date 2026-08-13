@@ -107,11 +107,24 @@ On first load the page looks for the data file in three places, in order:
 2. `web/data/Data.rsdk`, if you dropped a copy there before deploying
 3. you, via a file picker
 
-The picker takes either `Data.rsdk` itself or a `.zip` containing it, at any
-depth — [`js/zip.js`](js/zip.js) reads the archive's central directory and
-inflates the one entry via the platform's `DecompressionStream`, no library
-involved. That matters most on a phone, where unzipping otherwise means leaving
-the browser to hunt for a file manager. `.7z` and `.rar` are not supported.
+The picker takes `Data.rsdk` itself, or a `.zip`, `.apk` or `.obb` containing it
+— the latter two are ZIPs wearing a different extension. That matters most on a
+phone, where unpacking otherwise means leaving the browser to hunt for a file
+manager. `.7z` and `.rar` are not supported; the browser has no decompressor for
+them.
+
+[`js/zip.js`](js/zip.js) reads the archive's central directory and inflates
+entries with the platform's `DecompressionStream`, no library involved. Because
+an APK buries its assets under arbitrary paths and gives no guarantee the file
+kept its name, the search widens in stages, cheapest first:
+
+1. an entry named `Data.rsdk`, at any depth
+2. any entry with a `.rsdk` extension
+3. entries over 2 MB, largest first, identified by the bytes they start with
+
+Stage 3 reads only each candidate's first 16 bytes and then abandons the
+decompression stream, so a renamed file is found without inflating an entire
+archive. It stops after 8 candidates so a hostile archive can't stall the page.
 
 Whatever it finds is cached in IndexedDB, so the picker only ever appears once
 per browser. The file never leaves the device. `web/data/` is gitignored, so a

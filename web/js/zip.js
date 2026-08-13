@@ -85,8 +85,8 @@ const RetroZip = (() => {
 		return new Uint8Array(await new Response(stream).arrayBuffer());
 	}
 
-	/** Read one entry's bytes out of the archive. */
-	async function readEntry(bytes, entry) {
+	/** Where an entry's payload begins, per its own local header. */
+	function payloadStart(bytes, entry) {
 		const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
 		if (view.getUint32(entry.offset, true) !== LOC_SIG) {
@@ -97,7 +97,48 @@ const RetroZip = (() => {
 		// the authoritative ones for locating the payload.
 		const nameLen = view.getUint16(entry.offset + 26, true);
 		const extraLen = view.getUint16(entry.offset + 28, true);
-		const start = entry.offset + 30 + nameLen + extraLen;
+		return entry.offset + 30 + nameLen + extraLen;
+	}
+
+	/**
+	 * Read just the first `n` bytes of an entry.
+	 *
+	 * Used to sniff an entry's type without paying to decompress it: an APK can
+	 * hold a hundred entries and inflating each one in full to look at six bytes
+	 * would take longer than the game does to load.
+	 */
+	async function peekEntry(bytes, entry, n) {
+		const start = payloadStart(bytes, entry);
+		const raw = bytes.subarray(start, start + entry.compressedSize);
+
+		if (entry.method === METHOD_STORED) return raw.subarray(0, n);
+		if (entry.method !== METHOD_DEFLATE) return new Uint8Array(0);
+		if (typeof DecompressionStream !== "function") return new Uint8Array(0);
+
+		const stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+		const reader = stream.getReader();
+		const out = new Uint8Array(n);
+		let filled = 0;
+
+		try {
+			while (filled < n) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				const take = Math.min(n - filled, value.length);
+				out.set(value.subarray(0, take), filled);
+				filled += take;
+			}
+		} finally {
+			// Abandon the rest of the stream rather than inflating it for nothing.
+			reader.cancel().catch(() => {});
+		}
+
+		return out.subarray(0, filled);
+	}
+
+	/** Read one entry's bytes out of the archive. */
+	async function readEntry(bytes, entry) {
+		const start = payloadStart(bytes, entry);
 		const raw = bytes.subarray(start, start + entry.compressedSize);
 
 		if (entry.method === METHOD_STORED) return raw.slice();
@@ -130,12 +171,76 @@ const RetroZip = (() => {
 		return readEntry(bytes, matches[0]);
 	}
 
-	/** Cheap check so we only try to parse things that really are archives. */
+	// Entries smaller than this are not a game data pack, and skipping them keeps
+	// the content sweep below off the hundreds of icons and layouts in an APK.
+	const MIN_DATA_SIZE = 2 * 1024 * 1024;
+
+	// Cap on how many entries the content sweep will decompress-and-sniff, so a
+	// pathological archive cannot make the page sit there for a minute.
+	const MAX_SNIFFED = 8;
+
+	/**
+	 * Find the game data inside an archive.
+	 *
+	 * APKs and OBBs are ZIPs, but unlike a tidy game download they bury the data
+	 * under a path like `assets/`, and there is no guarantee it kept its original
+	 * name. So this widens the search in stages, cheapest first:
+	 *
+	 *   1. an entry actually called Data.rsdk
+	 *   2. any entry with a .rsdk extension
+	 *   3. big entries, largest first, identified by what their bytes start with
+	 *
+	 * Stage 3 only reads each candidate's first few bytes, so a renamed file is
+	 * still found without inflating a whole archive.
+	 *
+	 * @param {Uint8Array} bytes archive contents
+	 * @param {(prefix: Uint8Array) => boolean} isDataFile tests an entry's first bytes
+	 * @returns {Promise<{name: string, bytes: Uint8Array}|null>}
+	 */
+	async function findDataFile(bytes, isDataFile) {
+		const entries = listEntries(bytes);
+		const baseName = e => e.name.split("/").pop().toLowerCase();
+
+		// Several copies (one per game, say) is ambiguous; the biggest is the
+		// best guess at the real data pack.
+		const biggestFirst = list => list.sort((a, b) => b.size - a.size);
+
+		const byName = biggestFirst(entries.filter(e => baseName(e) === "data.rsdk"));
+		if (byName.length) {
+			return { name: byName[0].name, bytes: await readEntry(bytes, byName[0]) };
+		}
+
+		const byExtension = biggestFirst(entries.filter(e => baseName(e).endsWith(".rsdk")));
+		if (byExtension.length) {
+			return { name: byExtension[0].name, bytes: await readEntry(bytes, byExtension[0]) };
+		}
+
+		const candidates = biggestFirst(entries.filter(e => e.size >= MIN_DATA_SIZE)).slice(0, MAX_SNIFFED);
+		for (const entry of candidates) {
+			let prefix;
+			try {
+				prefix = await peekEntry(bytes, entry, 16);
+			} catch {
+				continue;                     // unreadable entry, try the next one
+			}
+			if (isDataFile(prefix)) {
+				return { name: entry.name, bytes: await readEntry(bytes, entry) };
+			}
+		}
+
+		return null;
+	}
+
+	/**
+	 * Cheap check so we only try to parse things that really are archives.
+	 * Covers .zip, and also .apk and .obb, which are ZIPs wearing a different
+	 * extension.
+	 */
 	function looksLikeZip(bytes) {
 		return bytes && bytes.length > 4 &&
 			bytes[0] === 0x50 && bytes[1] === 0x4b &&          // "PK"
 			(bytes[2] === 0x03 || bytes[2] === 0x05 || bytes[2] === 0x07);
 	}
 
-	return { looksLikeZip, listEntries, extractByName };
+	return { looksLikeZip, listEntries, extractByName, findDataFile };
 })();

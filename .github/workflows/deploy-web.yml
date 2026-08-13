@@ -93,11 +93,21 @@ jobs:
           emmake make PLATFORM=Emscripten SAFE=1 DEBUG=1 \
             OBJDIR=obj/Emscripten-safe OUTDIR=web/dist-safe -j"$(nproc)"
 
+      # The two axes are independent, so all four combinations have to exist:
+      # without this one ?rev=0&safe=1 quietly loaded the revision 2 build, and a
+      # revision 0 test that never ran looks just like one that ran and failed.
+      - name: Build the rev 0 heap-checked variant
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          emmake make PLATFORM=Emscripten REV=0 SAFE=1 DEBUG=1 \
+            OBJDIR=obj/Emscripten-rev0-safe OUTDIR=web/dist-rev0-safe -j"$(nproc)"
+
       - name: Assemble the site
         run: |
           mkdir -p _site
           cp -r web/index.html web/styles.css web/js web/icons \
-                web/manifest.webmanifest web/sw.js web/dist web/dist-safe web/dist-rev0 _site/
+                web/manifest.webmanifest web/sw.js \
+                web/dist web/dist-safe web/dist-rev0 web/dist-rev0-safe _site/
           # Tell Pages to serve the files as-is rather than running them
           # through Jekyll, which would drop anything starting with an underscore.
           touch _site/.nojekyll

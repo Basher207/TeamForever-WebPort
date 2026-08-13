@@ -3334,6 +3334,37 @@ void ClearScriptData()
     SetObjectTypeName("Blank Object", OBJ_TYPE_BLANKOBJECT);
 }
 
+#if !RETRO_USE_ORIGINAL_CODE
+// Which opcode and variable tables are correct is a property of the data file,
+// not of the engine, but RSDK_REVISION picks them at build time. Rev 1 inserted
+// floorSensorLC/RC into the middle of the object variable block, so when data
+// and engine disagree every variable after that point - object.value0 and the
+// rest of the workhorses included - shifts by two. The shifted ID lands on the
+// wrong case below and drags its entity index onto an array that was never
+// sized for it. Natively that quietly touches a neighbouring struct and the
+// game limps on; under wasm it traps, and the stack says only "ProcessScript".
+static const char *ScriptVarName(int varID)
+{
+#if RETRO_USE_COMPILER
+    if (varID >= 0 && varID < VAR_MAX_CNT)
+        return variableNames[varID];
+#endif
+    return "<unknown>";
+}
+
+int scriptRangeErrors = 0;
+
+static void ReportScriptRange(const char *access, int arrayVal, int varID, int opcode, int offset)
+{
+    // Enough to show whether it is one stray index or a systematic shift,
+    // without filling the on-screen log on a phone.
+    if (++scriptRangeErrors > 24)
+        return;
+    PrintLog("script %s out of range: %s[%d] in %s @%d (obj %d)%s", access, ScriptVarName(varID), arrayVal, functions[opcode].name, offset,
+             objectEntityList[objectEntityPos].type, scriptRangeErrors == 24 ? " - further reports suppressed" : "");
+}
+#endif
+
 void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
 {
     bool running      = true;
@@ -3391,7 +3422,18 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
                 }
 
                 // Variables
-                switch (scriptData[scriptDataPtr++]) {
+                int varID = scriptData[scriptDataPtr++];
+#if !RETRO_USE_ORIGINAL_CODE
+                // Printed before the read, not after, so that when one of these
+                // traps the last line in the log is the access that did it.
+                if (scriptTraceEnabled)
+                    printf("   in  p%d %s[%d]\n", i, ScriptVarName(varID), arrayVal);
+                if (arrayVal < 0 || arrayVal >= ENTITY_COUNT) {
+                    ReportScriptRange("read", arrayVal, varID, opcode, scriptCodeOffset);
+                    arrayVal = 0;
+                }
+#endif
+                switch (varID) {
                     default: break;
                     case VAR_TEMP0: scriptEng.operands[i] = scriptEng.temp[0]; break;
                     case VAR_TEMP1: scriptEng.operands[i] = scriptEng.temp[1]; break;
@@ -5660,7 +5702,16 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
                 }
 
                 // Variables
-                switch (scriptData[scriptDataPtr++]) {
+                int varID = scriptData[scriptDataPtr++];
+#if !RETRO_USE_ORIGINAL_CODE
+                if (scriptTraceEnabled)
+                    printf("   out p%d %s[%d] = %d\n", i, ScriptVarName(varID), arrayVal, scriptEng.operands[i]);
+                if (arrayVal < 0 || arrayVal >= ENTITY_COUNT) {
+                    ReportScriptRange("write", arrayVal, varID, opcode, scriptCodeOffset);
+                    arrayVal = 0;
+                }
+#endif
+                switch (varID) {
                     default: break;
                     case VAR_TEMP0: scriptEng.temp[0] = scriptEng.operands[i]; break;
                     case VAR_TEMP1: scriptEng.temp[1] = scriptEng.operands[i]; break;

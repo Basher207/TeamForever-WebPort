@@ -3256,7 +3256,11 @@ void LoadBytecode(int stageListID, int scriptID)
         // ended up exactly the size its compiler assumed. When it did not, the
         // events still start at plausible-looking offsets and simply decode into
         // whatever happens to live there - which is invisible without this.
-        if (scriptTraceEnabled || engineDebugMode) {
+        // Not gated on the trace flag: the global block loads before the page can
+        // turn tracing on, and its size is exactly what decides whether a stage's
+        // absolute offsets land where its compiler intended. PrintLog does its own
+        // gating anyway.
+        {
             PrintLog("bytecode '%s': %d scripts, %d functions, code now %d/%d, jumps now %d/%d", scriptPath, scriptCount, functionCount,
                      scriptCodePos, SCRIPTDATA_COUNT, jumpTablePos, JUMPTABLE_COUNT);
             for (int i = 0; i < scriptCount; ++i) {
@@ -3271,10 +3275,12 @@ void LoadBytecode(int stageListID, int scriptID)
                 // parameter type of 1, 2 or 3; one that is not looks like nothing
                 // in particular, and that difference is visible at a glance.
                 int at = objectScriptList[t].eventStartup.scriptCodePtr;
-                if (at >= 0 && at + 10 < SCRIPTDATA_COUNT) {
-                    PrintLog("       @%d: %d %d %d %d %d %d %d %d %d %d", at, scriptData[at], scriptData[at + 1], scriptData[at + 2],
-                             scriptData[at + 3], scriptData[at + 4], scriptData[at + 5], scriptData[at + 6], scriptData[at + 7],
-                             scriptData[at + 8], scriptData[at + 9]);
+                for (int row = 0; row < 3; ++row) {
+                    int a = at + row * 8;
+                    if (a < 0 || a + 8 >= SCRIPTDATA_COUNT)
+                        break;
+                    PrintLog("       @%d: %d %d %d %d %d %d %d %d", a, scriptData[a], scriptData[a + 1], scriptData[a + 2], scriptData[a + 3],
+                             scriptData[a + 4], scriptData[a + 5], scriptData[a + 6], scriptData[a + 7]);
                 }
             }
             for (int i = 0; i < functionCount; ++i)
@@ -3427,7 +3433,19 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
     foreachStackPos   = 0;
 
     while (running) {
-        int opcode           = scriptData[scriptDataPtr++];
+        int opcode = scriptData[scriptDataPtr++];
+#if !RETRO_USE_ORIGINAL_CODE
+        // functions[] is indexed by this with nothing checking it, so once a
+        // stream stops being code the very next fetch reads arbitrary memory -
+        // ahead of the trace print below, which is why the opcode that finally
+        // trapped never appeared in the log at all.
+        if (opcode < 0 || opcode >= FUNC_MAX_CNT) {
+            if (++scriptRangeErrors <= 24)
+                PrintLog("script stopped: opcode %d at @%d is not a function (obj %d)", opcode, scriptDataPtr - 1,
+                         objectEntityList[objectEntityPos].type);
+            return;
+        }
+#endif
         int opcodeSize       = functions[opcode].opcodeSize;
         int scriptCodeOffset = scriptDataPtr;
 
@@ -4210,6 +4228,19 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
                     printf("   str p%d len %d \"%s\"\n", i, strLen, scriptText);
 #endif
             }
+#if !RETRO_USE_ORIGINAL_CODE
+            // 1, 2 and 3 are the only parameter types there are. Anything else
+            // is the first point at which the stream provably stopped being
+            // code, and it is worth more than whatever it decays into: the
+            // original silently skips the parameter, so the words meant for it
+            // get read as the next opcode and the damage compounds from there.
+            else {
+                if (++scriptRangeErrors <= 24)
+                    PrintLog("script stopped: parameter type %d for %s p%d @%d (obj %d)", opcodeType, functions[opcode].name, i,
+                             scriptDataPtr - 1, objectEntityList[objectEntityPos].type);
+                return;
+            }
+#endif
         }
 
         ObjectScript *scriptInfo = &objectScriptList[objectEntityList[objectEntityPos].type];

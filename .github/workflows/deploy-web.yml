@@ -83,6 +83,12 @@ jobs:
           # Tell Pages to serve the files as-is rather than running them
           # through Jekyll, which would drop anything starting with an underscore.
           touch _site/.nojekyll
+
+          # Pages serves everything with max-age=600 and no version in the URL,
+          # so a browser can pair a fresh index.html with a stale boot.js. Keying
+          # the assets to the commit makes that combination impossible.
+          node web/tools/stamp-version.mjs _site "${GITHUB_SHA}"
+
           echo "--- published files ---"
           find _site -type f | sort
 

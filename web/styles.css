@@ -368,10 +368,21 @@ html, body {
 	cursor: pointer;
 }
 
-/* In portrait the pads live in a panel at the bottom; keep the log off them. */
+/* In portrait the pads live in a panel below the screen, with the fullscreen and
+   settings buttons along its top edge. Sit the log in the empty band between
+   those buttons and the pads: 58px clears the 38px button row and its margin,
+   and covering them would strand anyone whose game will not start, because the
+   settings sheet is how a data file gets changed. */
 @media (orientation: portrait) {
-	#log { bottom: auto; top: calc(min(46vh, 56vw) + var(--safe-t) + 8px); max-height: 34vh; }
-	#log-badge { bottom: auto; top: calc(min(46vh, 56vw) + var(--safe-t) + 8px); }
+	#log {
+		bottom: auto;
+		top: calc(min(46vh, 56vw) + var(--safe-t) + 58px);
+		max-height: 30vh;
+	}
+	#log-badge {
+		bottom: auto;
+		top: calc(min(46vh, 56vw) + var(--safe-t) + 58px);
+	}
 }
 
 /* ==========================  settings sheet  ============================ */

@@ -11,6 +11,11 @@
 (() => {
 	"use strict";
 
+	// Stamped onto asset URLs at deploy time so a cached copy of this file can
+	// never be paired with a differently-aged engine build.
+	const BUILD = typeof window.__BUILD__ === "string" ? window.__BUILD__ : "";
+	const bust = url => (BUILD ? url + (url.includes("?") ? "&" : "?") + "v=" + BUILD : url);
+
 	const WASM_LOADER = "dist/s1fs2a.js";
 	const DATA_URL = "data/Data.rsdk";      // optional: drop your own copy here
 	const GAME_ROOT = "/rsdk";
@@ -217,11 +222,23 @@
 		}
 	});
 
-	document.getElementById("btn-forget").addEventListener("click", async () => {
+	/**
+	 * Drop the cached data file and start over. Reloading is the honest way to
+	 * do it: the engine has the old data mapped into its filesystem and cannot
+	 * be handed a different one while it is running.
+	 */
+	async function changeDataFile() {
+		RetroLog.info("clearing the cached game data…");
 		await RetroStorage.forgetDataFile();
-		setStatus("Cached game data cleared. Reload to pick a different file.");
-		document.getElementById("settings").classList.add("hidden");
-	});
+		location.reload();
+	}
+
+	document.getElementById("btn-forget").addEventListener("click", changeDataFile);
+
+	// The same action from the log panel. Duplicated on purpose: the log is what
+	// is on screen when the game will not start, and the settings button behind
+	// it is exactly what a stuck player cannot reach.
+	document.getElementById("log-change").addEventListener("click", changeDataFile);
 
 	/* ---------------------------  engine start  ------------------------- */
 
@@ -239,7 +256,7 @@
 		return {
 			canvas: ui.canvas,
 			arguments: [],
-			locateFile: path => "dist/" + path,
+			locateFile: path => bust("dist/" + path),
 
 			// The engine's own stdout/stderr, mirrored onto the screen: on a phone
 			// the console is unreachable, and this is where the interesting
@@ -336,7 +353,7 @@
 		}
 
 		try {
-			if (!engineIsInlined()) await loadScript(WASM_LOADER);
+			if (!engineIsInlined()) await loadScript(bust(WASM_LOADER));
 			setProgress(0.5);
 
 			engine = await createRetroEngine(buildModuleConfig());

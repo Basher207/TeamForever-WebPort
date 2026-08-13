@@ -75,6 +75,15 @@ jobs:
           source ~/emsdk/emsdk_env.sh
           emmake make PLATFORM=Emscripten -j"$(nproc)"
 
+      # The opcode list differs between RSDKv4 revisions, and which one applies
+      # is a property of the data file rather than of the engine, so data from
+      # the original Sonic 1 release needs its own build. Reached with ?rev=0.
+      - name: Build the rev 0 opcode variant
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          emmake make PLATFORM=Emscripten REV=0 \
+            OBJDIR=obj/Emscripten-rev0 OUTDIR=web/dist-rev0 -j"$(nproc)"
+
       # Heap-checked and unoptimised, in its own object directory. Reached with
       # ?safe=1 when something needs diagnosing. Unoptimised matters: at -O3 the
       # frames worth reading are inlined away and the stack is just indices.
@@ -88,7 +97,7 @@ jobs:
         run: |
           mkdir -p _site
           cp -r web/index.html web/styles.css web/js web/icons \
-                web/manifest.webmanifest web/sw.js web/dist web/dist-safe _site/
+                web/manifest.webmanifest web/sw.js web/dist web/dist-safe web/dist-rev0 _site/
           # Tell Pages to serve the files as-is rather than running them
           # through Jekyll, which would drop anything starting with an underscore.
           touch _site/.nojekyll

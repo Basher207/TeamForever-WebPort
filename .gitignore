@@ -288,5 +288,6 @@ dependencies/mac/SDL2
 web/dist/
 web/dist-single/
 web/dist-safe/
+web/dist-rev0/
 # game data belongs to whoever owns a copy of the game, never to this repo
 web/data/

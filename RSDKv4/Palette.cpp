@@ -65,17 +65,22 @@ void SetLimitedFade(byte paletteID, byte R, byte G, byte B, ushort alpha, int st
     activePalette   = fullPalette[paletteID];
     activePalette32 = fullPalette32[paletteID];
 
-    if (blendAmount >= 0x100)
-        blendAmount = 0xFF;
+    // This branch only compiles under RSDK_REVISION 0 and had drifted out of
+    // step with the rest: it clamped a `blendAmount` that belongs to the rev01+
+    // signature rather than its own `alpha`, and called PACK_RGB888 with the
+    // destination as a fourth argument when the macro takes three and returns
+    // the packed value.
+    if (alpha >= 0x100)
+        alpha = 0xFF;
 
     if (startIndex >= endIndex)
         return;
 
     uint alpha2 = 0xFF - alpha;
     for (int i = startIndex; i <= endIndex; ++i) {
-        PACK_RGB888(activePalette[i], (byte)((ushort)(R * alpha + alpha2 * activePalette32[i].r) >> 8),
-                    (byte)((ushort)(G * alpha + alpha2 * activePalette32[i].g) >> 8),
-                    (byte)((ushort)(B * alpha + alpha2 * activePalette32[i].b) >> 8));
+        activePalette[i] = PACK_RGB888((byte)((ushort)(R * alpha + alpha2 * activePalette32[i].r) >> 8),
+                                       (byte)((ushort)(G * alpha + alpha2 * activePalette32[i].g) >> 8),
+                                       (byte)((ushort)(B * alpha + alpha2 * activePalette32[i].b) >> 8));
 
         activePalette32[i].r = (byte)((ushort)(R * alpha + alpha2 * activePalette32[i].r) >> 8);
         activePalette32[i].g = (byte)((ushort)(G * alpha + alpha2 * activePalette32[i].g) >> 8);

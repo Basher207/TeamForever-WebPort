@@ -19,8 +19,14 @@
 	// ?safe=1 loads the heap-checked build, which reports the exact access that
 	// goes out of bounds instead of trapping somewhere further downstream. It is
 	// far too slow to play; it is for finding a bug once.
-	const SAFE_BUILD = new URLSearchParams(location.search).get("safe") === "1";
-	const WASM_DIR = SAFE_BUILD ? "dist-safe/" : "dist/";
+	const params = new URLSearchParams(location.search);
+	const SAFE_BUILD = params.get("safe") === "1";
+
+	// ?rev=0 loads the build compiled against the original Sonic 1 opcode list.
+	// The right revision is a property of the data file, not of the engine, so
+	// there is a build per revision and no way to pick automatically.
+	const REV = params.get("rev") === "0" ? "0" : "";
+	const WASM_DIR = SAFE_BUILD ? "dist-safe/" : (REV === "0" ? "dist-rev0/" : "dist/");
 	const WASM_LOADER = WASM_DIR + "s1fs2a.js";
 	const DATA_URL = "data/Data.rsdk";      // optional: drop your own copy here
 	const GAME_ROOT = "/rsdk";
@@ -246,6 +252,20 @@
 	// a phone is miserable, and a stale cached page can hand back a boot.js that
 	// has never heard of the parameter, which looks exactly like the flag being
 	// ignored. The button always comes from the same file that reads it.
+	// Which opcode revision a data file needs is a property of the file, and
+	// nothing in the container says which. So it is a toggle rather than a
+	// setting: data from the original Sonic 1 release wants rev 0, the Forever
+	// projects' own data wants the default.
+	document.getElementById("log-rev").addEventListener("click", () => {
+		const url = new URL(location.href);
+
+		if (REV === "0") url.searchParams.delete("rev");
+		else url.searchParams.set("rev", "0");
+
+		url.searchParams.set("r", String(Date.now()));
+		location.replace(url.toString());
+	});
+
 	document.getElementById("log-safe").addEventListener("click", () => {
 		const url = new URL(location.href);
 
@@ -465,7 +485,7 @@
 
 	// ?debug=1 turns on the engine's own logging, which is off by default, so a
 	// black screen can be investigated without rebuilding anything.
-	if (new URLSearchParams(location.search).get("debug") === "1") {
+	if (params.get("debug") === "1") {
 		debugRequested = true;
 		RetroLog.info("debug mode requested");
 	}

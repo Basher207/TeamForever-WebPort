@@ -509,12 +509,16 @@
 		const next = order.find(r => !tried.includes(r));
 		const getStatus = engine.cwrap("RSDK_GetStatusJSON", "string", []);
 
+		// A blank screen has causes this cannot fix - missing stage assets, a
+		// half-extracted file - and there is no point polling for those forever.
+		const deadline = Date.now() + 30000;
+
 		const timer = setInterval(() => {
 			let s;
 			try { s = JSON.parse(getStatus()); } catch (e) { return; }
 
 			// Drawing something means the list is right; stop watching either way.
-			if (!s.blank) { clearInterval(timer); return; }
+			if (!s.blank || Date.now() > deadline) { clearInterval(timer); return; }
 
 			const looping = s.reloads >= 8;
 			if (!s.scriptErrors && !looping) return;

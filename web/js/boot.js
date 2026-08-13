@@ -22,16 +22,30 @@
 	const params = new URLSearchParams(location.search);
 	const SAFE_BUILD = params.get("safe") === "1";
 
-	// ?rev=0 loads the build compiled against the original Sonic 1 opcode list.
-	// The right revision is a property of the data file, not of the engine, so
-	// there is a build per revision and no way to pick automatically.
-	const REV = params.get("rev") === "0" ? "0" : "";
+	// Which opcode list a data file needs is a property of the file, not of the
+	// engine, and nothing in the container says which - so there is a build per
+	// list and no way to pick automatically. ?rev= selects between them.
+	//
+	//   2  the default, the latest RSDKv4 list
+	//   0  the earliest Sonic 1 list
+	//   1nc  the earliest Sonic 2 list, minus SetClassicFade and ClassicTint
+	//
+	// 1nc exists because those two opcodes are unconditional in the engine's list
+	// but absent from older data, which makes everything above each one decode a
+	// place too low. It is the only combination under which a Title.bin whose
+	// bytecode reads 75, 83 and 132 decodes as DrawRect, SetMusicTrack and
+	// SetTableValue rather than as LoadStage, ProcessAnimation and nonsense.
+	const REV_BUILDS = {
+		"2":   "dist",
+		"0":   "dist-rev0",
+		"1nc": "dist-rev1nc",
+	};
+	const REV = REV_BUILDS[params.get("rev")] ? params.get("rev") : "2";
 
-	// Every combination of the two has its own build, so ?rev=0&safe=1 means what
-	// it says. It used to silently fall back to the revision 2 heap-checked build,
-	// which looks exactly like revision 0 having been tried and not helped.
-	const WASM_DIR = REV === "0" ? (SAFE_BUILD ? "dist-rev0-safe/" : "dist-rev0/")
-	                             : (SAFE_BUILD ? "dist-safe/" : "dist/");
+	// Every revision has a heap-checked twin, so ?rev=X&safe=1 always means what
+	// it says. An earlier version silently fell back to the default heap-checked
+	// build, which looks exactly like a revision having been tried and not helped.
+	const WASM_DIR = REV_BUILDS[REV] + (SAFE_BUILD ? "-safe/" : "/");
 	const WASM_LOADER = WASM_DIR + "s1fs2a.js";
 	const DATA_URL = "data/Data.rsdk";      // optional: drop your own copy here
 	const GAME_ROOT = "/rsdk";
@@ -264,8 +278,13 @@
 	document.getElementById("log-rev").addEventListener("click", () => {
 		const url = new URL(location.href);
 
-		if (REV === "0") url.searchParams.delete("rev");
-		else url.searchParams.set("rev", "0");
+		// Cycles rather than toggles, now that there are three. Ordered so the
+		// most likely alternative comes first from the default.
+		const order = ["2", "1nc", "0"];
+		const next = order[(order.indexOf(REV) + 1) % order.length];
+
+		if (next === "2") url.searchParams.delete("rev");
+		else url.searchParams.set("rev", next);
 
 		url.searchParams.set("r", String(Date.now()));
 		location.replace(url.toString());
@@ -418,7 +437,7 @@
 		ui.error.classList.add("hidden");
 		setStatus("Loading engine…");
 		if (SAFE_BUILD) RetroLog.warn("using the heap-checked build — expect it to be very slow");
-		RetroLog.info(`opcode revision ${REV === "0" ? "0" : "2"}`);
+		RetroLog.info(`opcode list ${REV}`);
 		setProgress(0.15);
 
 		if (typeof WebAssembly !== "object" || typeof WebAssembly.instantiate !== "function") {

@@ -102,12 +102,30 @@ jobs:
           emmake make PLATFORM=Emscripten REV=0 SAFE=1 DEBUG=1 \
             OBJDIR=obj/Emscripten-rev0-safe OUTDIR=web/dist-rev0-safe -j"$(nproc)"
 
+      # Revision 1 without SetClassicFade and ClassicTint. Those two are
+      # unconditional in the engine's opcode list but absent from older data, and
+      # this is the only combination under which a Title.bin whose bytecode reads
+      # 75, 83 and 132 decodes as DrawRect, SetMusicTrack and SetTableValue.
+      # Reached with ?rev=1nc.
+      - name: Build the rev 1 no-classic variant
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          emmake make PLATFORM=Emscripten REV=1 CLASSIC=0 \
+            OBJDIR=obj/Emscripten-rev1nc OUTDIR=web/dist-rev1nc -j"$(nproc)"
+
+      - name: Build the rev 1 no-classic heap-checked variant
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          emmake make PLATFORM=Emscripten REV=1 CLASSIC=0 SAFE=1 DEBUG=1 \
+            OBJDIR=obj/Emscripten-rev1nc-safe OUTDIR=web/dist-rev1nc-safe -j"$(nproc)"
+
       - name: Assemble the site
         run: |
           mkdir -p _site
           cp -r web/index.html web/styles.css web/js web/icons \
                 web/manifest.webmanifest web/sw.js \
-                web/dist web/dist-safe web/dist-rev0 web/dist-rev0-safe _site/
+                web/dist web/dist-safe web/dist-rev0 web/dist-rev0-safe \
+                web/dist-rev1nc web/dist-rev1nc-safe _site/
           # Tell Pages to serve the files as-is rather than running them
           # through Jekyll, which would drop anything starting with an underscore.
           touch _site/.nojekyll

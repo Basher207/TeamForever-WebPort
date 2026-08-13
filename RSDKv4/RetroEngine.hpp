@@ -263,6 +263,15 @@ typedef unsigned int uint;
 // generally advised to keep this set to 1
 #define RETRO_REV02 (RSDK_REVISION == 2)
 
+// SetClassicFade and ClassicTint sit in the opcode list unconditionally, unlike
+// every other entry that varies between builds of the game, and a data file only
+// decodes under the list its bytecode was compiled against: an opcode that the
+// list has but the data does not makes everything above it decode one place too
+// low. Set to 0 to drop them, for data old enough to predate them.
+#ifndef RSDK_CLASSIC_OPCODES
+#define RSDK_CLASSIC_OPCODES (1)
+#endif
+
 enum RetroLanguages {
     RETRO_EN = 0,
     RETRO_FR = 1,

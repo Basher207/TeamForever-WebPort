@@ -104,6 +104,12 @@ On first load the page looks for the data file in three places, in order:
 2. `web/data/Data.rsdk`, if you dropped a copy there before deploying
 3. you, via a file picker
 
+The picker takes either `Data.rsdk` itself or a `.zip` containing it, at any
+depth — [`js/zip.js`](js/zip.js) reads the archive's central directory and
+inflates the one entry via the platform's `DecompressionStream`, no library
+involved. That matters most on a phone, where unzipping otherwise means leaving
+the browser to hunt for a file manager. `.7z` and `.rar` are not supported.
+
 Whatever it finds is cached in IndexedDB, so the picker only ever appears once
 per browser. The file never leaves the device. `web/data/` is gitignored, so a
 copy placed there cannot be committed by accident.

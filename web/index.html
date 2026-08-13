@@ -129,9 +129,10 @@
           only pick it once.
         </p>
         <label class="file-btn">
-          <input type="file" id="file-input" accept=".rsdk,application/octet-stream">
-          <span>Choose Data.rsdk</span>
+          <input type="file" id="file-input" accept=".rsdk,.zip,application/zip,application/octet-stream">
+          <span>Choose your game file</span>
         </label>
+        <p class="boot-hint">Pick <code>Data.rsdk</code>, or a <code>.zip</code> containing it &mdash; no need to unzip first.</p>
       </div>
 
       <button id="boot-play" class="play-btn hidden" type="button">Play</button>
@@ -143,6 +144,7 @@
 </div>
 
 <script src="js/storage.js"></script>
+<script src="js/zip.js"></script>
 <script src="js/controls.js"></script>
 <script src="js/boot.js"></script>
 </body>

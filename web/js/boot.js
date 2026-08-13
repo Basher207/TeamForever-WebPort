@@ -167,11 +167,32 @@
 		setStatus("Reading " + file.name + "…");
 
 		try {
-			const bytes = await readPickedFile(file);
+			let bytes = await readPickedFile(file);
 			setProgress(null);
 
+			// Downloads usually arrive zipped, and unzipping on a phone means
+			// leaving the browser to find a file manager. Dig the data file out
+			// here instead so the archive can be picked as-is.
+			if (!looksLikeRSDK(bytes) && RetroZip.looksLikeZip(bytes)) {
+				setStatus("Looking inside the archive…");
+				try {
+					const found = await RetroZip.extractByName(bytes, "Data.rsdk");
+					if (!found) {
+						fail("That archive doesn't contain a Data.rsdk.\n" +
+						     "If it holds another archive inside it, extract that one first.");
+						return;
+					}
+					bytes = found;
+				} catch (err) {
+					fail("Couldn't read that archive.\n" +
+					     "Only .zip is supported here — for .7z or .rar you'll need to extract it yourself.", err);
+					return;
+				}
+			}
+
 			if (!looksLikeRSDK(bytes)) {
-				fail("That doesn't look like an RSDKv4 data file. Look for Data.rsdk in your game's install folder.");
+				fail("That doesn't look like an RSDKv4 data file.\n" +
+				     "You're after Data.rsdk from your game's folder, or a .zip containing it.");
 				return;
 			}
 

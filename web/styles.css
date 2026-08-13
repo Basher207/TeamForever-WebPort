@@ -394,6 +394,19 @@ html, body {
 	color: var(--text);
 }
 
+.boot-hint {
+	margin: 12px 0 0;
+	color: var(--muted);
+	font-size: 12.5px;
+}
+.boot-hint code {
+	background: var(--bg-raised);
+	border-radius: 4px;
+	padding: 1px 4px;
+	font: 600 11.5px/1 ui-monospace, monospace;
+	color: var(--text);
+}
+
 .file-btn input { display: none; }
 .file-btn span,
 .play-btn {

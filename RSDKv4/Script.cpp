@@ -3265,7 +3265,20 @@ void LoadBytecode(int stageListID, int scriptID)
                          objectScriptList[t].eventDraw.scriptCodePtr, objectScriptList[t].eventStartup.scriptCodePtr,
                          objectScriptList[t].eventMain.jumpTablePtr, objectScriptList[t].eventDraw.jumpTablePtr,
                          objectScriptList[t].eventStartup.jumpTablePtr);
+
+                // The first few words at each startup offset, raw. An offset that
+                // is aimed correctly starts with a small opcode followed by a
+                // parameter type of 1, 2 or 3; one that is not looks like nothing
+                // in particular, and that difference is visible at a glance.
+                int at = objectScriptList[t].eventStartup.scriptCodePtr;
+                if (at >= 0 && at + 10 < SCRIPTDATA_COUNT) {
+                    PrintLog("       @%d: %d %d %d %d %d %d %d %d %d %d", at, scriptData[at], scriptData[at + 1], scriptData[at + 2],
+                             scriptData[at + 3], scriptData[at + 4], scriptData[at + 5], scriptData[at + 6], scriptData[at + 7],
+                             scriptData[at + 8], scriptData[at + 9]);
+                }
             }
+            for (int i = 0; i < functionCount; ++i)
+                PrintLog("  function %d code=%d jump=%d", i, functionScriptList[i].scriptCodePtr, functionScriptList[i].jumpTablePtr);
         }
 #endif
 
@@ -4156,7 +4169,16 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
                 scriptEng.operands[i] = scriptData[scriptDataPtr++];
             }
             else if (opcodeType == SCRIPTVAR_STRCONST) { // string constant
-                int strLen         = scriptData[scriptDataPtr++];
+                int strLen = scriptData[scriptDataPtr++];
+#if !RETRO_USE_ORIGINAL_CODE
+                // The terminator below is written before the length is used for
+                // anything else, so a length that came out of non-code lands
+                // outside scriptText before there is any chance to notice.
+                if (strLen < 0 || strLen >= (int)sizeof(scriptText)) {
+                    ReportScriptRange("strlen", "scriptText", strLen, opcode, scriptCodeOffset);
+                    strLen = 0;
+                }
+#endif
                 scriptText[strLen] = 0;
                 for (int c = 0; c < strLen; ++c) {
                     switch (c % 4) {
@@ -4180,6 +4202,13 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
                     }
                 }
                 scriptDataPtr++;
+#if !RETRO_USE_ORIGINAL_CODE
+                // Whether a decoded string is a real asset name or noise is the
+                // quickest way to tell a mis-aimed event offset from a correct one,
+                // and it costs one line per string parameter.
+                if (scriptTraceEnabled)
+                    printf("   str p%d len %d \"%s\"\n", i, strLen, scriptText);
+#endif
             }
         }
 

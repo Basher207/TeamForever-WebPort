@@ -322,6 +322,14 @@
 				setStatus("The game closed.");
 				ui.boot.classList.remove("hidden");
 			},
+
+			// A wasm trap arrives here as well as through window.onerror, and this
+			// one carries the engine's own message rather than the runtime's.
+			onAbort: what => {
+				RetroLog.error("engine aborted: " + what);
+				RetroLog.error("stack: " + new Error().stack);
+				RetroLog.show(true);
+			},
 		};
 	}
 

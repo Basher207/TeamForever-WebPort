@@ -59,6 +59,15 @@ const RetroLog = (() => {
 	const warn = text => add(text, "warn");
 	const error = text => add(text, "error");
 
+	/**
+	 * Log a stack trace, trimmed. Frames beyond the top dozen are almost always
+	 * the runtime's own plumbing, and a wall of them buries the useful lines.
+	 */
+	function reportStack(stack) {
+		const frames = String(stack).split("\n").map(s => s.trim()).filter(Boolean).slice(0, 12);
+		for (const frame of frames) add("  at " + frame, "error");
+	}
+
 	function show(pinned) {
 		if (pinned) userPinned = true;
 		panel.classList.remove("hidden");
@@ -83,11 +92,19 @@ const RetroLog = (() => {
 			return;                        // engine gone; nothing to report
 		}
 
+		// Memory is worth watching: wasm grows its heap on demand, and a growth
+		// a phone refuses turns into a failed allocation and then a wild pointer.
+		// Seeing the size right before a trap says whether that is what happened.
+		let heap = "";
+		try {
+			if (engine.HEAPU8) heap = ` heap=${(engine.HEAPU8.length / (1024 * 1024)).toFixed(0)}MB`;
+		} catch { /* not exported in this build */ }
+
 		// Only log when something actually changed, otherwise the panel fills
 		// with identical lines and the interesting one scrolls away.
 		if (status !== lastStatus) {
 			lastStatus = status;
-			info("engine " + status);
+			info("engine " + status + heap);
 		}
 
 		let parsed;
@@ -153,9 +170,17 @@ const RetroLog = (() => {
 			setTimeout(() => { button.textContent = "Copy"; }, 2000);
 		});
 
-		// Surface anything that would otherwise only reach the console.
-		window.addEventListener("error", ev => error("js error: " + ev.message));
-		window.addEventListener("unhandledrejection", ev => error("unhandled rejection: " + ev.reason));
+		// Surface anything that would otherwise only reach the console. The stack
+		// is the valuable half: a wasm trap's message says nothing about where it
+		// happened, and the build keeps function names so the frames are readable.
+		window.addEventListener("error", ev => {
+			error("js error: " + ev.message);
+			if (ev.error && ev.error.stack) reportStack(ev.error.stack);
+		});
+		window.addEventListener("unhandledrejection", ev => {
+			error("unhandled rejection: " + ev.reason);
+			if (ev.reason && ev.reason.stack) reportStack(ev.reason.stack);
+		});
 	}
 
 	/** Start watching the engine once it exists. */

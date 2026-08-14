@@ -284,9 +284,9 @@ there is a build per list, chosen with **Opcode rev** in the startup log, or
 
 | `?rev=` | list |
 | --- | --- |
-| *(default)* | the latest RSDKv4 list — Sonic 1 Forever, Sonic 2 Absolute, current official releases |
-| `1nc` | as revision 1, without `SetClassicFade` and `ClassicTint` — older official releases |
-| `0` | the earliest Sonic 1 list |
+| *(default)* | the latest RSDKv4 list plus this engine's own additions — Sonic 1 Forever, Sonic 2 Absolute |
+| `1nc` | revision 1 without this engine's additions (`SetClassicFade`, `ClassicTint`, `LoadVideo`, `NextVideoFrame`) — the official mobile releases |
+| `0` | the earliest Sonic 1 list, also without those additions — the original Sonic 1 release |
 
 The choice is remembered per browser, so a home-screen launch keeps it, and it is
 cleared along with the data file by **Forget the game data file**.

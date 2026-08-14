@@ -10,6 +10,7 @@ on:
     branches:
       - foreve
       - claude/sonic-forever-js-wasm-upod8x
+      - claude/button-presses-not-working-d1fqss
     # Only rebuild when something that ends up on the page changes.
     paths:
       - 'RSDKv4/**'
@@ -78,10 +79,11 @@ jobs:
       # The opcode list differs between RSDKv4 revisions, and which one applies
       # is a property of the data file rather than of the engine, so data from
       # the original Sonic 1 release needs its own build. Reached with ?rev=0.
+      # CLASSIC=0 because that data predates every opcode this engine added.
       - name: Build the rev 0 opcode variant
         run: |
           source ~/emsdk/emsdk_env.sh
-          emmake make PLATFORM=Emscripten REV=0 \
+          emmake make PLATFORM=Emscripten REV=0 CLASSIC=0 \
             OBJDIR=obj/Emscripten-rev0 OUTDIR=web/dist-rev0 -j"$(nproc)"
 
       # Heap-checked and unoptimised, in its own object directory. Reached with
@@ -99,14 +101,18 @@ jobs:
       - name: Build the rev 0 heap-checked variant
         run: |
           source ~/emsdk/emsdk_env.sh
-          emmake make PLATFORM=Emscripten REV=0 SAFE=1 DEBUG=1 \
+          emmake make PLATFORM=Emscripten REV=0 CLASSIC=0 SAFE=1 DEBUG=1 \
             OBJDIR=obj/Emscripten-rev0-safe OUTDIR=web/dist-rev0-safe -j"$(nproc)"
 
-      # Revision 1 without SetClassicFade and ClassicTint. Those two are
-      # unconditional in the engine's opcode list but absent from older data, and
-      # this is the only combination under which a Title.bin whose bytecode reads
-      # 75, 83 and 132 decodes as DrawRect, SetMusicTrack and SetTableValue.
-      # Reached with ?rev=1nc.
+      # Revision 1 without the four opcodes this engine added after the official
+      # data era (SetClassicFade, ClassicTint, LoadVideo, NextVideoFrame) - that
+      # is, the original revision 1 list, which is what the 2013/SEGA Forever
+      # mobile releases compiled their bytecode against. The classic pair shifts
+      # the low half of the list (75 and 83 decode as DrawRect and SetMusicTrack
+      # only without them), and the video pair shifts everything from Not upward:
+      # with them in, the CallFunction that leads to the title screen's input
+      # check decodes as MatrixInverse and nothing on the stage ever reads a
+      # button. Reached with ?rev=1nc.
       - name: Build the rev 1 no-classic variant
         run: |
           source ~/emsdk/emsdk_env.sh

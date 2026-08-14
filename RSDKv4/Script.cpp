@@ -495,8 +495,13 @@ const FunctionInfo functions[] = {
     FunctionInfo("ObjectTileGrip", 4),
 
     // Video
+    // Added to this engine in 2024, mid-table like the Classic pair, so data
+    // compiled against the original lists decodes everything from Not to
+    // CheckTouchRect two places too low unless these are dropped with them.
+#if RSDK_CLASSIC_OPCODES
     FunctionInfo("LoadVideo", 1),
     FunctionInfo("NextVideoFrame", 0),
+#endif
 
     // Bitwise Not
     FunctionInfo("Not", 1),
@@ -560,7 +565,10 @@ const FunctionInfo functions[] = {
     FunctionInfo("CallNativeFunction4", 5),
 
     FunctionInfo("SetObjectRange", 1),
-#if !RETRO_REV00 || !RETRO_REV01
+    // && not ||: rev 2 only, matching the ScrFunc enum and the ProcessScript
+    // cases. With || this held three entries the other two structures lack, so
+    // the rev 0 and rev 1 tables disagreed with their own dispatch from here on.
+#if !RETRO_REV00 && !RETRO_REV01
     FunctionInfo("GetObjectValue", 3),
     FunctionInfo("SetObjectValue", 3),
     FunctionInfo("CopyObject", 3),
@@ -1090,8 +1098,10 @@ enum ScrFunc {
     FUNC_SETSFXATTRIBUTES,
     FUNC_OBJECTTILECOLLISION,
     FUNC_OBJECTTILEGRIP,
+#if RSDK_CLASSIC_OPCODES
     FUNC_LOADVIDEO,
     FUNC_NEXTVIDEOFRAME,
+#endif
     FUNC_NOT,
     FUNC_DRAW3DSCENE,
     FUNC_SETIDENTITYMATRIX,
@@ -5547,6 +5557,7 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
                     case CSIDE_ROOF: ObjectRoofGrip(scriptEng.operands[1], scriptEng.operands[2], scriptEng.operands[3]); break;
                 }
                 break;
+#if RSDK_CLASSIC_OPCODES
             case FUNC_LOADVIDEO:
                 opcodeSize = 0;
                 PauseSound();
@@ -5563,6 +5574,7 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
                 opcodeSize = 0;
                 UpdateVideoFrame();
                 break;
+#endif
             case FUNC_NOT: scriptEng.operands[0] = ~scriptEng.operands[0]; break;
             case FUNC_DRAW3DSCENE:
                 opcodeSize = 0;

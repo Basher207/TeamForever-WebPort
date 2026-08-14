@@ -26,15 +26,18 @@
 	// engine, and nothing in the container says which - so there is a build per
 	// list and no way to pick automatically. ?rev= selects between them.
 	//
-	//   2  the default, the latest RSDKv4 list
-	//   0  the earliest Sonic 1 list
-	//   1nc  the earliest Sonic 2 list, minus SetClassicFade and ClassicTint
+	//   2  the default, the latest RSDKv4 list plus this engine's additions
+	//   0  the earliest Sonic 1 list, without this engine's additions
+	//   1nc  the earliest Sonic 2 list, without this engine's additions
 	//
-	// 1nc exists because those two opcodes are unconditional in the engine's list
-	// but absent from older data, which makes everything above each one decode a
-	// place too low. It is the only combination under which a Title.bin whose
-	// bytecode reads 75, 83 and 132 decodes as DrawRect, SetMusicTrack and
-	// SetTableValue rather than as LoadStage, ProcessAnimation and nonsense.
+	// "This engine's additions" are four opcodes inserted mid-list after the
+	// official data era: SetClassicFade, ClassicTint, LoadVideo, NextVideoFrame.
+	// Each one that the list has but the data does not makes everything above it
+	// decode a place too low. The classic pair is why 75 and 83 decode as
+	// DrawRect and SetMusicTrack rather than as LoadStage and ProcessAnimation;
+	// the video pair is why CallFunction used to decode as MatrixInverse,
+	// leaving a title screen that drew and played music but never read a single
+	// button.
 	const REV_BUILDS = {
 		"2":   "dist",
 		"0":   "dist-rev0",

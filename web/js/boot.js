@@ -45,6 +45,21 @@
 	// gets lost when the page is launched from a home screen shortcut - which is
 	// how it will mostly be launched. An explicit ?rev= still wins, so a link
 	// works regardless of what the device happens to remember.
+	// The game's scripts branch on this to decide whether their menus answer to
+	// buttons or to touches, and a browser is the one target that cannot know at
+	// compile time which it is running on. Data from the 2013 mobile releases has
+	// no button path at all, so on a touch device this has to say MOBILE or the
+	// title screen ignores every button no matter how well the input arrives.
+	const DEVICE_KEY = "rsdkv4:deviceType";
+	let deviceStored = null;
+	try { deviceStored = localStorage.getItem(DEVICE_KEY); } catch (e) { /* private mode */ }
+
+	const deviceParam = params.get("device");
+	const MOBILE = ["mobile", "standard"].includes(deviceParam) ? deviceParam === "mobile"
+	             : ["mobile", "standard"].includes(deviceStored) ? deviceStored === "mobile"
+	             : (navigator.maxTouchPoints || 0) > 0;
+	try { localStorage.setItem(DEVICE_KEY, MOBILE ? "mobile" : "standard"); } catch (e) { /* private mode */ }
+
 	const REV_KEY = "rsdkv4:opcodeList";
 	let revStored = null;
 	try { revStored = localStorage.getItem(REV_KEY); } catch (e) { /* private mode */ }
@@ -306,6 +321,16 @@
 		location.replace(url.toString());
 	});
 
+	// Same reasoning as the opcode list: which one a data file wants is a property
+	// of the file, the container does not say, and editing a query string on a
+	// phone is miserable.
+	document.getElementById("log-device").addEventListener("click", () => {
+		const url = new URL(location.href);
+		url.searchParams.set("device", MOBILE ? "standard" : "mobile");
+		url.searchParams.set("r", String(Date.now()));
+		location.replace(url.toString());
+	});
+
 	document.getElementById("log-safe").addEventListener("click", () => {
 		const url = new URL(location.href);
 
@@ -555,6 +580,11 @@
 		const setFocused = engine.cwrap("RSDK_SetFocused", null, ["number"]);
 		const clearButtons = engine.cwrap("RSDK_ClearButtonStates", null, []);
 		const requestSaveSync = engine.cwrap("RSDK_RequestSaveSync", null, []);
+
+		// Before the controls, so the reload it triggers happens while nothing is
+		// being held.
+		engine.ccall("RSDK_SetDeviceType", null, ["number"], [MOBILE ? 1 : 0]);
+		RetroLog.info(`device type ${MOBILE ? "mobile — menus answer to taps on the picture" : "standard"}`);
 
 		RetroControls.attach((button, held) => setButtonState(button, held ? 1 : 0));
 

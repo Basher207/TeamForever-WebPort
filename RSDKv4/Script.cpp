@@ -4198,7 +4198,13 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
                     case VAR_ENGINEBGMVOLUME: scriptEng.operands[i] = bgmVolume; break;
                     case VAR_ENGINEPLATFORMID: scriptEng.operands[i] = RETRO_GAMEPLATFORMID; break;
                     case VAR_ENGINETRIALMODE: scriptEng.operands[i] = Engine.trialMode; break;
-                    case VAR_ENGINEDEVICETYPE: scriptEng.operands[i] = RETRO_DEVICETYPE; break;
+                    // The engine's own field rather than the build-time macro. Every
+                    // platform initialises one from the other, so this reads the same
+                    // everywhere, but a browser is the one target that cannot know at
+                    // compile time whether it is a phone or a desktop - and the game's
+                    // scripts branch on this to decide whether their menus respond to
+                    // buttons or to touches.
+                    case VAR_ENGINEDEVICETYPE: scriptEng.operands[i] = Engine.gameDeviceType; break;
 #if RETRO_USE_HAPTICS
                     case VAR_HAPTICSENABLED: scriptEng.operands[i] = Engine.hapticsEnabled; break;
 #endif

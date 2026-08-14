@@ -202,6 +202,25 @@ EMSCRIPTEN_KEEPALIVE void RSDK_SetFocused(int focused)
     }
 }
 
+// A browser is the one target that cannot know at compile time whether it is a
+// phone or a desktop, and the game's scripts branch on this: data from the 2013
+// mobile releases reaches its menus through touch rects and has no button path
+// at all, so a build reporting STANDARD leaves them unreachable no matter what
+// the input bridge does. Reloading the scene re-runs the startup events, which
+// is where objects decide what to draw for the device they think they are on.
+EMSCRIPTEN_KEEPALIVE void RSDK_SetDeviceType(int mobile)
+{
+    int wanted = mobile ? RETRO_MOBILE : RETRO_STANDARD;
+    if (Engine.gameDeviceType == wanted)
+        return;
+
+    Engine.gameDeviceType = wanted;
+    Engine.gamePlatform   = wanted == RETRO_MOBILE ? "MOBILE" : "STANDARD";
+
+    if (Engine.initialised)
+        stageMode = STAGEMODE_LOAD;
+}
+
 // Ask the engine to flush save data now (e.g. on pagehide).
 EMSCRIPTEN_KEEPALIVE void RSDK_RequestSaveSync()
 {

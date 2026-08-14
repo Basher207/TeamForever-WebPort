@@ -246,6 +246,22 @@
 		setStatus(message);
 		ui.picker.classList.add("hidden");
 		ui.play.classList.remove("hidden");
+
+		// A reload the page started itself carries the player's original tap
+		// through, so the engine boots without asking for another one. This is
+		// what turns "tap, black screen, reload, tap, black screen, reload,
+		// tap" into a single tap followed by the page finding the right build
+		// on its own.
+		let carried = false;
+		try {
+			carried = sessionStorage.getItem(AUTOSTART_KEY) === "1";
+			sessionStorage.removeItem(AUTOSTART_KEY);
+		} catch (e) { /* private mode */ }
+
+		if (carried) {
+			RetroLog.info("continuing from the previous tap…");
+			start();
+		}
 	}
 
 	async function acquireData() {
@@ -342,6 +358,20 @@
 
 	document.getElementById("btn-forget").addEventListener("click", changeDataFile);
 
+	// Reloads the page triggers itself - trying another opcode list, flipping a
+	// setting - skip the Play tap on the other side: the player already gave
+	// one, and asking again on every hop is what made auto-detection feel like
+	// a reload loop. sessionStorage so the flag survives the navigation but
+	// never leaks into a fresh visit. If the browser then boots the engine
+	// without a fresh gesture and suspends its audio context, SDL resumes it on
+	// the first real interaction, so sound is at worst late, never lost.
+	const AUTOSTART_KEY = "rsdkv4:autostart";
+
+	function reloadWith(url) {
+		try { sessionStorage.setItem(AUTOSTART_KEY, "1"); } catch (e) { /* private mode */ }
+		location.replace(url.toString());
+	}
+
 	// A button rather than a documented URL parameter: editing a query string on
 	// a phone is miserable, and a stale cached page can hand back a boot.js that
 	// has never heard of the parameter, which looks exactly like the flag being
@@ -353,16 +383,17 @@
 	document.getElementById("log-rev").addEventListener("click", () => {
 		const url = new URL(location.href);
 
-		// Cycles rather than toggles, now that there are four. Ordered so the
-		// most likely alternative comes first from the default.
-		const order = ["2", "1nc", "2nc", "0"];
+		// Cycles rather than toggles, now that there are four. 2nc ahead of 1nc:
+		// most ripped data files are current store releases, and both lists draw
+		// a title screen either way - they only part company in the text band.
+		const order = ["2", "2nc", "1nc", "0"];
 		const next = order[(order.indexOf(REV) + 1) % order.length];
 
 		if (next === "2") url.searchParams.delete("rev");
 		else url.searchParams.set("rev", next);
 
 		url.searchParams.set("r", String(Date.now()));
-		location.replace(url.toString());
+		reloadWith(url);
 	});
 
 	// Same reasoning as the opcode list: which one a data file wants is a property
@@ -372,7 +403,7 @@
 		const url = new URL(location.href);
 		url.searchParams.set("device", MOBILE ? "standard" : "mobile");
 		url.searchParams.set("r", String(Date.now()));
-		location.replace(url.toString());
+		reloadWith(url);
 	});
 
 	document.getElementById("log-safe").addEventListener("click", () => {
@@ -383,7 +414,7 @@
 
 		// Defeat any cached copy of the page itself, not just of its assets.
 		url.searchParams.set("r", String(Date.now()));
-		location.replace(url.toString());
+		reloadWith(url);
 	});
 
 	// The same action from the log panel. Duplicated on purpose: the log is what
@@ -612,7 +643,9 @@
 	// screen app launches its own start_url, and on iOS it gets a storage
 	// container of its own, so it cannot inherit a choice made in the browser.
 	function watchForWrongOpcodeList() {
-		const order = ["2", "1nc", "2nc", "0"];
+		// Same order as the cycle button; 2nc ahead of 1nc because ripped data
+		// files are mostly current store releases.
+		const order = ["2", "2nc", "1nc", "0"];
 
 		// Per-tab, so a genuine crash loop cannot bounce a device between builds
 		// forever: each list is tried at most once per launch.
@@ -659,7 +692,7 @@
 			const url = new URL(location.href);
 			url.searchParams.set("rev", next);
 			url.searchParams.set("r", String(Date.now()));
-			setTimeout(() => location.replace(url.toString()), 1200);
+			setTimeout(() => reloadWith(url), 1200);
 		}, 500);
 	}
 

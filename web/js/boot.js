@@ -56,6 +56,13 @@
 	// "Set Object (N) name to: ...".
 	const TRACE_OBJECT = /^\d+$/.test(params.get("trace") || "") ? Number(params.get("trace")) : -1;
 
+	// ?startmenu=1 enters through the native splash and menus instead of jumping
+	// straight to the script title screen. Which one a data file expects is not
+	// something the container says, so it is another thing to try rather than
+	// something that can be decided here. -1 leaves settings.ini in charge.
+	const startMenuParam = params.get("startmenu");
+	const START_MENU = startMenuParam === "1" ? 0 : startMenuParam === "0" ? 1 : -1;
+
 	const DEVICE_KEY = "rsdkv4:deviceType";
 	let deviceStored = null;
 	try { deviceStored = localStorage.getItem(DEVICE_KEY); } catch (e) { /* private mode */ }
@@ -429,6 +436,17 @@
 			// module, and `this` is the only handle on it here - the factory's
 			// promise has not resolved yet, so `engine` is still unset.
 			onRuntimeInitialized: function () {
+				// Before main(), and so before settings.ini is parsed - which is the
+				// whole point, since the engine would otherwise write over it.
+				if (START_MENU >= 0) {
+					try {
+						this._RSDK_SetSkipStartMenu(START_MENU);
+						RetroLog.info(START_MENU ? "skipping the start menu" : "entering through the native start menu");
+					} catch (err) {
+						RetroLog.warn("could not set the start menu mode: " + err);
+					}
+				}
+
 				if (!SAFE_BUILD) return;
 				try {
 					this._RSDK_SetForceLog(1);

@@ -16,6 +16,9 @@
 // keyboard/gamepad state in ProcessInput() so all three work at once.
 extern int webInputHeld[INPUT_BUTTONCOUNT];
 
+// -1 leaves settings.ini in charge of the start menu; 0 and 1 override it.
+extern int webSkipStartMenu;
+
 // True while the page's touch controls are being held, used to keep the engine
 // in keyboard-input mode instead of letting an idle gamepad steal focus.
 bool WebInputActive();

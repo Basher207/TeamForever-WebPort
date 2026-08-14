@@ -7,6 +7,9 @@
 
 int webInputHeld[INPUT_BUTTONCOUNT];
 
+// -1 leaves settings.ini in charge; 0 and 1 override it. See InitNativeObjects.
+int webSkipStartMenu = -1;
+
 // ============================================================================
 // Persistent storage
 // ============================================================================
@@ -304,6 +307,12 @@ EMSCRIPTEN_KEEPALIVE void RSDK_SetDebugMode(int enabled)
 // lines run before main() gets anywhere near an exported function, and they are
 // the ones that say why something came up disabled.
 EMSCRIPTEN_KEEPALIVE void RSDK_SetForceLog(int enabled) { forceDebugLog = enabled != 0; }
+
+// Whether to enter through the native splash and menus rather than jumping
+// straight to the script title screen. Set before main() for the same reason as
+// the logging flag above: the engine reads settings.ini during startup and would
+// write over anything set afterwards. -1 leaves the file in charge.
+EMSCRIPTEN_KEEPALIVE void RSDK_SetSkipStartMenu(int skip) { webSkipStartMenu = skip; }
 
 // Logs every script opcode as it starts. ProcessScript is one enormous switch,
 // so a crash inside it produces a stack that stops at its door; the last opcode

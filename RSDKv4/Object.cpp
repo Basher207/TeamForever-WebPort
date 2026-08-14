@@ -427,7 +427,17 @@ void InitNativeObjectSystem()
     Engine.globalBoxRegion = saveGame->boxRegion;
     SetGameVolumes(saveGame->musVolume, saveGame->sfxVolume);
 #if !RETRO_USE_ORIGINAL_CODE
+#if RETRO_PLATFORM == RETRO_EMSCRIPTEN
+    // Two different ways into the game, and which one a data file expects is not
+    // something the container says. Skipping goes straight to the script title
+    // screen; not skipping arrives through the native splash and menus, which is
+    // how the 2013 mobile releases are meant to be entered. The override is read
+    // here rather than assigned to skipStartMenu because settings.ini is parsed
+    // before this point and would write over anything the page had set.
+    if (webSkipStartMenu >= 0 ? webSkipStartMenu != 0 : skipStartMenu) {
+#else
     if (skipStartMenu) {
+#endif
         CREATE_ENTITY(RetroGameLoop);
         if (Engine.gameDeviceType == RETRO_MOBILE)
             CREATE_ENTITY(VirtualDPad);

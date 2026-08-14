@@ -498,7 +498,9 @@
 						this._RSDK_SetTraceObject(TRACE_OBJECT);
 						RetroLog.info(`tracing object ${TRACE_OBJECT} only`);
 					}
-					else {
+					else if (SAFE_BUILD && !DISASM) {
+						// Only when nothing narrower was asked for: the blanket trace
+						// is thousands of lines a second and buries anything else.
 						this._RSDK_SetScriptTrace(1);
 						RetroLog.info("script tracing enabled");
 					}

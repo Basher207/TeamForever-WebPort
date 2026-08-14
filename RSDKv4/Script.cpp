@@ -3101,6 +3101,16 @@ static void DisassembleEvent(const char *label, int start, int end)
 
     PrintLog("--- %s @%d..%d", label, start, end);
 
+    // The decoded listing is only as good as the table it was decoded with, and
+    // that table is the thing in doubt. The words let a candidate list be tried
+    // against this exact event without another build.
+    for (int row = start; row < end; row += 12) {
+        char raw[0x200];
+        int n = snprintf(raw, sizeof(raw), "  raw @%d:", row);
+        for (int i = row; i < row + 12 && i < end; ++i) n += snprintf(raw + n, sizeof(raw) - n, " %d", scriptData[i]);
+        PrintLog("%s", raw);
+    }
+
     int ptr = start;
     // Enough for any event in a presentation stage, and a hard stop in case a
     // stream turns out not to be code after all.
@@ -3113,7 +3123,7 @@ static void DisassembleEvent(const char *label, int start, int end)
         }
 
         char line[0x200];
-        int n = snprintf(line, sizeof(line), "  @%d %s", at, functions[opcode].name);
+        int n = snprintf(line, sizeof(line), "  @%d [%d] %s", at, opcode, functions[opcode].name);
 
         for (int i = 0; i < functions[opcode].opcodeSize && ptr < end; ++i) {
             int type = scriptData[ptr++];

@@ -50,6 +50,12 @@
 	// compile time which it is running on. Data from the 2013 mobile releases has
 	// no button path at all, so on a touch device this has to say MOBILE or the
 	// title screen ignores every button no matter how well the input arrives.
+	// ?trace=N restricts the script trace (heap-checked build only) to one object
+	// type, so a single object's events can be read without the rest of the stage
+	// scrolling them away. The type numbers are the ones the log prints as
+	// "Set Object (N) name to: ...".
+	const TRACE_OBJECT = /^\d+$/.test(params.get("trace") || "") ? Number(params.get("trace")) : -1;
+
 	const DEVICE_KEY = "rsdkv4:deviceType";
 	let deviceStored = null;
 	try { deviceStored = localStorage.getItem(DEVICE_KEY); } catch (e) { /* private mode */ }
@@ -427,7 +433,13 @@
 				try {
 					this._RSDK_SetForceLog(1);
 					this._RSDK_SetScriptTrace(1);
-					RetroLog.info("early engine logging and script tracing enabled");
+					// A stage at rest still runs every object's main and draw event
+					// sixty times a second, so an unfiltered trace buries the one
+					// event worth reading under thousands of lines a second.
+					this._RSDK_SetTraceObject(TRACE_OBJECT);
+					RetroLog.info(TRACE_OBJECT < 0
+						? "early engine logging and script tracing enabled"
+						: `early engine logging enabled, tracing object ${TRACE_OBJECT} only`);
 				} catch (err) {
 					console.warn("[boot] could not enable early logging:", err);
 					RetroLog.warn("could not enable early logging: " + err);

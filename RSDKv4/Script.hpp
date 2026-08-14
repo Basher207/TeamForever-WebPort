@@ -119,6 +119,9 @@ extern char scriptText[0x4000];
 // the data's opcode list does not match the engine's, which the page uses to
 // pick a different one rather than making someone read a log to find out.
 extern int scriptRangeErrors;
+
+// Object type the script trace is restricted to, or -1 for all of them.
+extern int scriptTraceObject;
 #endif
 
 extern int scriptDataPos;

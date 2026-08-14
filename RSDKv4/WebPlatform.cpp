@@ -310,6 +310,11 @@ EMSCRIPTEN_KEEPALIVE void RSDK_SetForceLog(int enabled) { forceDebugLog = enable
 // to begin is the only thing that says which of several hundred cases was live.
 EMSCRIPTEN_KEEPALIVE void RSDK_SetScriptTrace(int enabled) { scriptTraceEnabled = enabled != 0; }
 
+// Restrict the trace to one object type. A stage at rest still runs every
+// object's main and draw event sixty times a second, so an unfiltered trace
+// buries the one event worth reading. -1 traces everything.
+EMSCRIPTEN_KEEPALIVE void RSDK_SetTraceObject(int objectType) { scriptTraceObject = objectType; }
+
 // Whether the engine currently considers a button held, after the keyboard,
 // gamepad and touch sources have been merged. Exposed so the page (and the
 // browser console) can confirm input is actually landing.

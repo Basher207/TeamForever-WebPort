@@ -25,6 +25,11 @@ int scriptDataPos       = 0;
 // below can be attributed to a specific one.
 bool scriptTraceEnabled = false;
 
+// -1 traces everything. A stage at rest still runs every object's main and draw
+// event sixty times a second, so an unfiltered trace is thousands of lines
+// before anyone can read one; naming a single object type makes it legible.
+int scriptTraceObject = -1;
+
 // Capped so a script that stops every frame cannot fill the log, and reset per
 // bytecode load so the cap applies to a scene rather than to the whole session -
 // otherwise a stage that reloads in a loop burns the budget in its first second
@@ -3445,7 +3450,7 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
     // The entry point, not just the opcodes reached from it: an event that
     // decodes into nonsense is either being handed the wrong start offset or
     // reading corrupt script data, and only the offset tells the two apart.
-    if (scriptTraceEnabled)
+    if (scriptTraceEnabled && (scriptTraceObject < 0 || objectEntityList[objectEntityPos].type == scriptTraceObject))
         printf("event %d obj %d code=%d jump=%d\n", scriptEvent, objectEntityList[objectEntityPos].type, scriptCodePtr, jumpTablePtr);
 #endif
     // int jumpTableDataPtr = jumpTablePtr;
@@ -3477,7 +3482,7 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
         // several hundred cases was running.
         // printf rather than PrintLog: PrintLog opens, appends to and closes
         // log.txt on every call, and tracing a stage load is thousands of lines.
-        if (scriptTraceEnabled)
+        if (scriptTraceEnabled && (scriptTraceObject < 0 || objectEntityList[objectEntityPos].type == scriptTraceObject))
             printf("op %s (%d) obj %d @%d\n", functions[opcode].name, opcode, objectEntityList[objectEntityPos].type, scriptCodeOffset);
 #endif
 
@@ -3517,7 +3522,7 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
 #if !RETRO_USE_ORIGINAL_CODE
                 // Printed before the read, not after, so that when one of these
                 // traps the last line in the log is the access that did it.
-                if (scriptTraceEnabled)
+                if (scriptTraceEnabled && (scriptTraceObject < 0 || objectEntityList[objectEntityPos].type == scriptTraceObject))
                     printf("   in  p%d %s[%d]\n", i, ScriptVarName(varID), arrayVal);
                 if (arrayVal < 0 || arrayVal >= ENTITY_COUNT) {
                     ReportScriptRange("read", ScriptVarName(varID), arrayVal, opcode, scriptCodeOffset);
@@ -4251,7 +4256,7 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
                 // Whether a decoded string is a real asset name or noise is the
                 // quickest way to tell a mis-aimed event offset from a correct one,
                 // and it costs one line per string parameter.
-                if (scriptTraceEnabled)
+                if (scriptTraceEnabled && (scriptTraceObject < 0 || objectEntityList[objectEntityPos].type == scriptTraceObject))
                     printf("   str p%d len %d \"%s\"\n", i, strLen, scriptText);
 #endif
             }
@@ -5834,7 +5839,7 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
                 // Variables
                 int varID = scriptData[scriptDataPtr++];
 #if !RETRO_USE_ORIGINAL_CODE
-                if (scriptTraceEnabled)
+                if (scriptTraceEnabled && (scriptTraceObject < 0 || objectEntityList[objectEntityPos].type == scriptTraceObject))
                     printf("   out p%d %s[%d] = %d\n", i, ScriptVarName(varID), arrayVal, scriptEng.operands[i]);
                 if (arrayVal < 0 || arrayVal >= ENTITY_COUNT) {
                     ReportScriptRange("write", ScriptVarName(varID), arrayVal, opcode, scriptCodeOffset);

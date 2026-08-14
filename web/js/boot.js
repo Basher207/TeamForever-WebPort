@@ -77,6 +77,16 @@
 	             : (navigator.maxTouchPoints || 0) > 0;
 	try { localStorage.setItem(DEVICE_KEY, MOBILE ? "mobile" : "standard"); } catch (e) { /* private mode */ }
 
+	// Which of the seven platforms the scripts think they are running on. They
+	// switch on it directly to pick prompts and layouts, and a switch with no case
+	// for the value falls to a default that does nothing - so a build claiming to
+	// be Windows leaves mobile data's title screen configured for a platform it
+	// has never heard of. Follows the device type unless ?platform= says otherwise.
+	//   0 Windows  1 macOS  2 Xbox 360  3 PS3  4 iOS  5 Android  6 Windows Phone
+	const PLATFORM = /^[0-6]$/.test(params.get("platform") || "")
+		? Number(params.get("platform"))
+		: (MOBILE ? 5 : 0);
+
 	const REV_KEY = "rsdkv4:opcodeList";
 	let revStored = null;
 	try { revStored = localStorage.getItem(REV_KEY); } catch (e) { /* private mode */ }
@@ -639,7 +649,10 @@
 		// Before the controls, so the reload it triggers happens while nothing is
 		// being held.
 		engine.ccall("RSDK_SetDeviceType", null, ["number"], [MOBILE ? 1 : 0]);
-		RetroLog.info(`device type ${MOBILE ? "mobile — menus answer to taps on the picture" : "standard"}`);
+		engine.ccall("RSDK_SetPlatformID", null, ["number"], [PLATFORM]);
+		const platformNames = ["Windows", "macOS", "Xbox 360", "PS3", "iOS", "Android", "Windows Phone"];
+		RetroLog.info(`device type ${MOBILE ? "mobile — menus answer to taps on the picture" : "standard"}, `
+			+ `reporting as ${platformNames[PLATFORM]}`);
 
 		RetroControls.attach((button, held) => setButtonState(button, held ? 1 : 0));
 

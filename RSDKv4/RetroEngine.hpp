@@ -419,6 +419,12 @@ public:
     int message = 0;
 #endif
     int gameDeviceType    = RETRO_STANDARD;
+
+    // Scripts branch on this to pick their platform's prompts and layouts, and a
+    // switch with no case for the value falls through to a default that does
+    // nothing. Runtime rather than the build-time macro for the same reason as
+    // gameDeviceType: a browser does not know at build time which it is.
+    int gamePlatformID    = RETRO_GAMEPLATFORMID;
     int globalBoxRegion   = REGION_JP;
     bool nativeMenuFadeIn = false;
 

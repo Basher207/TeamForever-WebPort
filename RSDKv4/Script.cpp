@@ -4206,7 +4206,7 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
                     case VAR_ENGINEONLINEACTIVE: scriptEng.operands[i] = Engine.onlineActive; break;
                     case VAR_ENGINESFXVOLUME: scriptEng.operands[i] = sfxVolume; break;
                     case VAR_ENGINEBGMVOLUME: scriptEng.operands[i] = bgmVolume; break;
-                    case VAR_ENGINEPLATFORMID: scriptEng.operands[i] = RETRO_GAMEPLATFORMID; break;
+                    case VAR_ENGINEPLATFORMID: scriptEng.operands[i] = Engine.gamePlatformID; break;
                     case VAR_ENGINETRIALMODE: scriptEng.operands[i] = Engine.trialMode; break;
                     // The engine's own field rather than the build-time macro. Every
                     // platform initialises one from the other, so this reads the same

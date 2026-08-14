@@ -224,6 +224,22 @@ EMSCRIPTEN_KEEPALIVE void RSDK_SetDeviceType(int mobile)
         stageMode = STAGEMODE_LOAD;
 }
 
+// Which of the seven platforms the scripts think they are running on. Separate
+// from the device type because scripts switch on it directly, and a switch with
+// no case for the value falls to a default that does nothing at all - which is
+// how a title screen ends up drawing its prompt while never arming the state
+// that would listen for a button.
+EMSCRIPTEN_KEEPALIVE void RSDK_SetPlatformID(int id)
+{
+    if (id < 0 || id > RETRO_WP7 || Engine.gamePlatformID == id)
+        return;
+
+    Engine.gamePlatformID = id;
+
+    if (Engine.initialised)
+        stageMode = STAGEMODE_LOAD;
+}
+
 // Ask the engine to flush save data now (e.g. on pagehide).
 EMSCRIPTEN_KEEPALIVE void RSDK_RequestSaveSync()
 {

@@ -125,6 +125,9 @@ extern int scriptTraceObject;
 
 // Log every input-variable read by any object, with the value it saw.
 extern bool scriptTraceInput;
+
+// Print each object's events as decoded opcodes once, at bytecode load.
+extern bool scriptDisassemble;
 #endif
 
 extern int scriptDataPos;

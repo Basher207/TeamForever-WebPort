@@ -60,6 +60,10 @@
 	const TRACE_OBJECT = /^\d+$/.test(params.get("trace") || "") ? Number(params.get("trace")) : -1;
 	const TRACE_INPUT = params.get("trace") === "input";
 
+	// ?disasm=1 prints each object's events as decoded opcodes, once, when the
+	// bytecode loads. Needs the engine's own logging, so it implies safe mode.
+	const DISASM = params.get("disasm") === "1";
+
 	// ?startmenu=1 enters through the native splash and menus instead of jumping
 	// straight to the script title screen. Which one a data file expects is not
 	// something the container says, so it is another thing to try rather than
@@ -466,13 +470,18 @@
 				// ran and found nothing. The exports exist in every build and the
 				// input trace is low volume, so there is no reason to make anyone wait
 				// twenty seconds for a build too slow to play.
-				const wantTrace = TRACE_INPUT || TRACE_OBJECT >= 0;
+				const wantTrace = TRACE_INPUT || TRACE_OBJECT >= 0 || DISASM;
 				if (!SAFE_BUILD && !wantTrace) return;
 
 				try {
-					if (SAFE_BUILD) {
+					if (SAFE_BUILD || DISASM) {
 						this._RSDK_SetForceLog(1);
 						RetroLog.info("early engine logging enabled");
+					}
+
+					if (DISASM) {
+						this._RSDK_SetDisassemble(1);
+						RetroLog.info("disassembling the stage's scripts");
 					}
 
 					if (TRACE_INPUT) {

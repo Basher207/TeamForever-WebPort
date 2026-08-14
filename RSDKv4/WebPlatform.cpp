@@ -346,6 +346,11 @@ EMSCRIPTEN_KEEPALIVE void RSDK_SetTraceObject(int objectType) { scriptTraceObjec
 // be doing nothing but blinking it.
 EMSCRIPTEN_KEEPALIVE void RSDK_SetTraceInput(int enabled) { scriptTraceInput = enabled != 0; }
 
+// Print each object's events as decoded opcodes, once, when the bytecode loads.
+// Tracing says what a script did on one frame; this says what it can do at all,
+// which is the question once "did the input arrive" has been answered.
+EMSCRIPTEN_KEEPALIVE void RSDK_SetDisassemble(int enabled) { scriptDisassemble = enabled != 0; }
+
 // Whether the engine currently considers a button held, after the keyboard,
 // gamepad and touch sources have been merged. Exposed so the page (and the
 // browser console) can confirm input is actually landing.

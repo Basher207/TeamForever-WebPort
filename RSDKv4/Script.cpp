@@ -3080,6 +3080,93 @@ void ParseScriptFile(char *scriptName, int scriptID)
 }
 #endif
 
+
+#if !RETRO_USE_ORIGINAL_CODE
+// Off unless ?disasm=1 asks for it. Tracing showed what a script did on one
+// frame; this shows what it can do at all, which is what is needed once the
+// question stops being "did the input arrive" and becomes "what is this object
+// waiting for".
+bool scriptDisassemble = false;
+
+// Defined with the rest of the script-engine diagnostics, further down.
+static const char *ScriptVarName(int varID);
+
+// Walks an event linearly and prints it. Parameters are decoded the same way
+// ProcessScript decodes them - that is the only definition of the format there
+// is - and variables are named rather than numbered.
+static void DisassembleEvent(const char *label, int start, int end)
+{
+    if (start < 0 || start >= end || end > SCRIPTDATA_COUNT)
+        return;
+
+    PrintLog("--- %s @%d..%d", label, start, end);
+
+    int ptr = start;
+    // Enough for any event in a presentation stage, and a hard stop in case a
+    // stream turns out not to be code after all.
+    for (int printed = 0; ptr < end && printed < 160; ++printed) {
+        int at     = ptr;
+        int opcode = scriptData[ptr++];
+        if (opcode < 0 || opcode >= FUNC_MAX_CNT) {
+            PrintLog("  @%d <not an opcode: %d>", at, opcode);
+            return;
+        }
+
+        char line[0x200];
+        int n = snprintf(line, sizeof(line), "  @%d %s", at, functions[opcode].name);
+
+        for (int i = 0; i < functions[opcode].opcodeSize && ptr < end; ++i) {
+            int type = scriptData[ptr++];
+
+            if (type == SCRIPTVAR_VAR) {
+                int arrType = scriptData[ptr++];
+                int index   = -1;
+                bool viaPos = false;
+                if (arrType != VARARR_NONE) {
+                    viaPos = scriptData[ptr++] == 1;
+                    index  = scriptData[ptr++];
+                }
+                int varID = scriptData[ptr++];
+                if (arrType == VARARR_NONE)
+                    n += snprintf(line + n, sizeof(line) - n, " %s", ScriptVarName(varID));
+                else
+                    n += snprintf(line + n, sizeof(line) - n, " %s[%s%d]", ScriptVarName(varID), viaPos ? "arrayPos" : "", index);
+            }
+            else if (type == SCRIPTVAR_INTCONST) {
+                n += snprintf(line + n, sizeof(line) - n, " %d", scriptData[ptr++]);
+            }
+            else if (type == SCRIPTVAR_STRCONST) {
+                int len = scriptData[ptr++];
+                char text[0x40];
+                int c = 0;
+                for (; c < len && c < (int)sizeof(text) - 1; ++c) {
+                    switch (c % 4) {
+                        case 0: text[c] = scriptData[ptr] >> 24; break;
+                        case 1: text[c] = (0xFFFFFF & scriptData[ptr]) >> 16; break;
+                        case 2: text[c] = (0xFFFF & scriptData[ptr]) >> 8; break;
+                        case 3: text[c] = scriptData[ptr++]; break;
+                    }
+                }
+                text[c] = 0;
+                // The remainder still has to be stepped over even when it did not fit.
+                for (; c < len; ++c)
+                    if ((c % 4) == 3)
+                        ptr++;
+                ptr++;
+                n += snprintf(line + n, sizeof(line) - n, " \"%s\"", text);
+            }
+            else {
+                n += snprintf(line + n, sizeof(line) - n, " <bad parameter type %d>", type);
+                PrintLog("%s", line);
+                return;
+            }
+        }
+
+        PrintLog("%s", line);
+    }
+}
+#endif
+
 void LoadBytecode(int stageListID, int scriptID)
 {
     char scriptPath[0x40];
@@ -3318,6 +3405,40 @@ void LoadBytecode(int stageListID, int scriptID)
             }
             for (int i = 0; i < functionCount; ++i)
                 PrintLog("  function %d code=%d jump=%d", i, functionScriptList[i].scriptCodePtr, functionScriptList[i].jumpTablePtr);
+
+            if (scriptDisassemble) {
+                // An event runs until the next thing in the block starts, so the
+                // boundaries come from every other offset in the file rather than
+                // from anything the event itself carries.
+                int bounds[0x80];
+                int boundCount = 0;
+                bounds[boundCount++] = scriptCodePos;
+                for (int i = 0; i < scriptCount && boundCount + 3 < 0x80; ++i) {
+                    int t = scriptID + i;
+                    bounds[boundCount++] = objectScriptList[t].eventMain.scriptCodePtr;
+                    bounds[boundCount++] = objectScriptList[t].eventDraw.scriptCodePtr;
+                    bounds[boundCount++] = objectScriptList[t].eventStartup.scriptCodePtr;
+                }
+                for (int i = 0; i < functionCount && boundCount < 0x80; ++i)
+                    bounds[boundCount++] = functionScriptList[i].scriptCodePtr;
+
+                const char *evName[3] = { "main", "draw", "startup" };
+                for (int i = 0; i < scriptCount; ++i) {
+                    int t        = scriptID + i;
+                    int evAt[3]  = { objectScriptList[t].eventMain.scriptCodePtr, objectScriptList[t].eventDraw.scriptCodePtr,
+                                    objectScriptList[t].eventStartup.scriptCodePtr };
+                    for (int e = 0; e < 3; ++e) {
+                        int end = scriptCodePos;
+                        for (int b = 0; b < boundCount; ++b) {
+                            if (bounds[b] > evAt[e] && bounds[b] < end)
+                                end = bounds[b];
+                        }
+                        char label[0x60];
+                        snprintf(label, sizeof(label), "obj %d '%s' %s", t, typeNames[t], evName[e]);
+                        DisassembleEvent(label, evAt[e], end);
+                    }
+                }
+            }
         }
 #endif
 

@@ -451,29 +451,41 @@
 					}
 				}
 
-				if (!SAFE_BUILD) return;
+				// Tracing used to require the heap-checked build, so ?trace= on the
+				// normal one did nothing at all - indistinguishable from a trace that
+				// ran and found nothing. The exports exist in every build and the
+				// input trace is low volume, so there is no reason to make anyone wait
+				// twenty seconds for a build too slow to play.
+				const wantTrace = TRACE_INPUT || TRACE_OBJECT >= 0;
+				if (!SAFE_BUILD && !wantTrace) return;
+
 				try {
-					this._RSDK_SetForceLog(1);
-					this._RSDK_SetScriptTrace(1);
-					// A stage at rest still runs every object's main and draw event
-					// sixty times a second, so an unfiltered trace buries the one
-					// event worth reading under thousands of lines a second.
-					this._RSDK_SetTraceObject(TRACE_INPUT ? -1 : TRACE_OBJECT);
+					if (SAFE_BUILD) {
+						this._RSDK_SetForceLog(1);
+						RetroLog.info("early engine logging enabled");
+					}
+
 					if (TRACE_INPUT) {
-						// The opcode trace would bury the input reads, which are the
-						// only thing this mode is for.
-						this._RSDK_SetScriptTrace(0);
+						// Deliberately without the opcode trace, which would bury the
+						// input reads this mode exists to show.
 						this._RSDK_SetTraceInput(1);
-						RetroLog.info("early engine logging enabled, tracing input reads only");
+						RetroLog.info("tracing input reads");
+					}
+					else if (TRACE_OBJECT >= 0) {
+						// A stage at rest still runs every object's main and draw event
+						// sixty times a second, so an unfiltered trace buries the one
+						// event worth reading.
+						this._RSDK_SetScriptTrace(1);
+						this._RSDK_SetTraceObject(TRACE_OBJECT);
+						RetroLog.info(`tracing object ${TRACE_OBJECT} only`);
 					}
 					else {
-						RetroLog.info(TRACE_OBJECT < 0
-							? "early engine logging and script tracing enabled"
-							: `early engine logging enabled, tracing object ${TRACE_OBJECT} only`);
+						this._RSDK_SetScriptTrace(1);
+						RetroLog.info("script tracing enabled");
 					}
 				} catch (err) {
-					console.warn("[boot] could not enable early logging:", err);
-					RetroLog.warn("could not enable early logging: " + err);
+					console.warn("[boot] could not enable tracing:", err);
+					RetroLog.warn("could not enable tracing: " + err);
 				}
 			},
 

@@ -54,7 +54,11 @@
 	// type, so a single object's events can be read without the rest of the stage
 	// scrolling them away. The type numbers are the ones the log prints as
 	// "Set Object (N) name to: ...".
+	// ?trace=input is the other mode: every input-variable read by any object,
+	// with the value it saw. Tracing one object only answers the question when the
+	// object that owns the input is already known.
 	const TRACE_OBJECT = /^\d+$/.test(params.get("trace") || "") ? Number(params.get("trace")) : -1;
+	const TRACE_INPUT = params.get("trace") === "input";
 
 	// ?startmenu=1 enters through the native splash and menus instead of jumping
 	// straight to the script title screen. Which one a data file expects is not
@@ -454,10 +458,19 @@
 					// A stage at rest still runs every object's main and draw event
 					// sixty times a second, so an unfiltered trace buries the one
 					// event worth reading under thousands of lines a second.
-					this._RSDK_SetTraceObject(TRACE_OBJECT);
-					RetroLog.info(TRACE_OBJECT < 0
-						? "early engine logging and script tracing enabled"
-						: `early engine logging enabled, tracing object ${TRACE_OBJECT} only`);
+					this._RSDK_SetTraceObject(TRACE_INPUT ? -1 : TRACE_OBJECT);
+					if (TRACE_INPUT) {
+						// The opcode trace would bury the input reads, which are the
+						// only thing this mode is for.
+						this._RSDK_SetScriptTrace(0);
+						this._RSDK_SetTraceInput(1);
+						RetroLog.info("early engine logging enabled, tracing input reads only");
+					}
+					else {
+						RetroLog.info(TRACE_OBJECT < 0
+							? "early engine logging and script tracing enabled"
+							: `early engine logging enabled, tracing object ${TRACE_OBJECT} only`);
+					}
 				} catch (err) {
 					console.warn("[boot] could not enable early logging:", err);
 					RetroLog.warn("could not enable early logging: " + err);

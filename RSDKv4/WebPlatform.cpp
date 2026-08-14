@@ -324,6 +324,12 @@ EMSCRIPTEN_KEEPALIVE void RSDK_SetScriptTrace(int enabled) { scriptTraceEnabled 
 // buries the one event worth reading. -1 traces everything.
 EMSCRIPTEN_KEEPALIVE void RSDK_SetTraceObject(int objectType) { scriptTraceObject = objectType; }
 
+// Follow the input reads themselves rather than one object's events. Tracing a
+// single object only answers the question when the object that owns the input is
+// already known, and at a title screen it is not: the one drawing the prompt can
+// be doing nothing but blinking it.
+EMSCRIPTEN_KEEPALIVE void RSDK_SetTraceInput(int enabled) { scriptTraceInput = enabled != 0; }
+
 // Whether the engine currently considers a button held, after the keyboard,
 // gamepad and touch sources have been merged. Exposed so the page (and the
 // browser console) can confirm input is actually landing.

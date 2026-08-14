@@ -122,6 +122,9 @@ extern int scriptRangeErrors;
 
 // Object type the script trace is restricted to, or -1 for all of them.
 extern int scriptTraceObject;
+
+// Log every input-variable read by any object, with the value it saw.
+extern bool scriptTraceInput;
 #endif
 
 extern int scriptDataPos;

@@ -30,6 +30,11 @@ bool scriptTraceEnabled = false;
 // before anyone can read one; naming a single object type makes it legible.
 int scriptTraceObject = -1;
 
+// Logs every read of an input variable by any object, with the value the script
+// actually saw. Tracing one object at a time only answers the question if the
+// object owning the input is already known, and it usually is not.
+bool scriptTraceInput = false;
+
 // Capped so a script that stops every frame cannot fill the log, and reset per
 // bytecode load so the cap applies to a scene rather than to the whole session -
 // otherwise a stage that reloads in a loop burns the budget in its first second
@@ -4214,6 +4219,16 @@ void ProcessScript(int scriptCodePtr, int jumpTablePtr, byte scriptEvent)
                     case VAR_HAPTICSENABLED: scriptEng.operands[i] = Engine.hapticsEnabled; break;
 #endif
                 }
+
+#if !RETRO_USE_ORIGINAL_CODE
+                // After the switch, so the value is the one the script received
+                // rather than the one it asked for.
+                if (scriptTraceInput
+                    && ((varID >= VAR_INPUTDOWNUP && varID <= VAR_INPUTPRESSSELECT)
+                        || (varID >= VAR_TOUCHSCREENDOWN && varID <= VAR_TOUCHSCREENYPOS)))
+                    printf("input obj %d reads %s = %d (%s @%d)\n", objectEntityList[objectEntityPos].type, ScriptVarName(varID),
+                           scriptEng.operands[i], functions[opcode].name, scriptCodeOffset);
+#endif
             }
             else if (opcodeType == SCRIPTVAR_INTCONST) { // int constant
                 scriptEng.operands[i] = scriptData[scriptDataPtr++];

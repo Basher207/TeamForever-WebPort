@@ -125,13 +125,32 @@ jobs:
           emmake make PLATFORM=Emscripten REV=1 CLASSIC=0 SAFE=1 DEBUG=1 \
             OBJDIR=obj/Emscripten-rev1nc-safe OUTDIR=web/dist-rev1nc-safe -j"$(nproc)"
 
+      # Revision 2 without this engine's additions - the original revision 2
+      # list, for data from the current store releases. Identical to 1nc below
+      # LoadFontFile (so a title screen behaves the same under either), and
+      # differs in the text-handling band above it: revision 2 dropped
+      # LoadFontFile and DrawText and changed LoadTextFile's arity, so menus
+      # that draw text are where a 1nc/2nc mismatch shows. Reached with ?rev=2nc.
+      - name: Build the rev 2 no-additions variant
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          emmake make PLATFORM=Emscripten REV=2 CLASSIC=0 \
+            OBJDIR=obj/Emscripten-rev2nc OUTDIR=web/dist-rev2nc -j"$(nproc)"
+
+      - name: Build the rev 2 no-additions heap-checked variant
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          emmake make PLATFORM=Emscripten REV=2 CLASSIC=0 SAFE=1 DEBUG=1 \
+            OBJDIR=obj/Emscripten-rev2nc-safe OUTDIR=web/dist-rev2nc-safe -j"$(nproc)"
+
       - name: Assemble the site
         run: |
           mkdir -p _site
           cp -r web/index.html web/styles.css web/js web/icons \
                 web/manifest.webmanifest web/sw.js \
                 web/dist web/dist-safe web/dist-rev0 web/dist-rev0-safe \
-                web/dist-rev1nc web/dist-rev1nc-safe _site/
+                web/dist-rev1nc web/dist-rev1nc-safe \
+                web/dist-rev2nc web/dist-rev2nc-safe _site/
           # Tell Pages to serve the files as-is rather than running them
           # through Jekyll, which would drop anything starting with an underscore.
           touch _site/.nojekyll

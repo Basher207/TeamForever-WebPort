@@ -29,6 +29,12 @@
 	//   2  the default, the latest RSDKv4 list plus this engine's additions
 	//   0  the earliest Sonic 1 list, without this engine's additions
 	//   1nc  the earliest Sonic 2 list, without this engine's additions
+	//   2nc  the latest official list, without this engine's additions
+	//
+	// 1nc and 2nc are identical below LoadFontFile and differ only in the
+	// text-handling band above it (revision 2 dropped LoadFontFile and DrawText
+	// and changed LoadTextFile's arity), so a title screen behaves the same
+	// under both and the difference only shows in menus that draw text.
 	//
 	// "This engine's additions" are four opcodes inserted mid-list after the
 	// official data era: SetClassicFade, ClassicTint, LoadVideo, NextVideoFrame.
@@ -42,6 +48,7 @@
 		"2":   "dist",
 		"0":   "dist-rev0",
 		"1nc": "dist-rev1nc",
+		"2nc": "dist-rev2nc",
 	};
 	// Remembered, because the list a file needs is a property of that file and so
 	// does not change between visits, and because the query string is exactly what
@@ -101,7 +108,10 @@
 	const REV = REV_BUILDS[params.get("rev")] ? params.get("rev")
 	          : REV_BUILDS[revStored]         ? revStored
 	          :                                 "2";
-	try { localStorage.setItem(REV_KEY, REV); } catch (e) { /* private mode */ }
+	// Deliberately not stored here. The choice is only remembered once the
+	// engine is seen to draw with it (in watchForWrongOpcodeList): a list stored
+	// before it has worked can wedge the device on a broken one, with every
+	// later visit inheriting a black screen and nothing on it to say why.
 
 	// Every revision has a heap-checked twin, so ?rev=X&safe=1 always means what
 	// it says. An earlier version silently fell back to the default heap-checked
@@ -343,9 +353,9 @@
 	document.getElementById("log-rev").addEventListener("click", () => {
 		const url = new URL(location.href);
 
-		// Cycles rather than toggles, now that there are three. Ordered so the
+		// Cycles rather than toggles, now that there are four. Ordered so the
 		// most likely alternative comes first from the default.
-		const order = ["2", "1nc", "0"];
+		const order = ["2", "1nc", "2nc", "0"];
 		const next = order[(order.indexOf(REV) + 1) % order.length];
 
 		if (next === "2") url.searchParams.delete("rev");
@@ -602,7 +612,7 @@
 	// screen app launches its own start_url, and on iOS it gets a storage
 	// container of its own, so it cannot inherit a choice made in the browser.
 	function watchForWrongOpcodeList() {
-		const order = ["2", "1nc", "0"];
+		const order = ["2", "1nc", "2nc", "0"];
 
 		// Per-tab, so a genuine crash loop cannot bounce a device between builds
 		// forever: each list is tried at most once per launch.
@@ -621,8 +631,16 @@
 			let s;
 			try { s = JSON.parse(getStatus()); } catch (e) { return; }
 
-			// Drawing something means the list is right; stop watching either way.
-			if (!s.blank || Date.now() > deadline) { clearInterval(timer); return; }
+			// Drawing something means the list is right - and that is the only
+			// moment a list is worth remembering. Storing a candidate before it
+			// had drawn is how a device got wedged on a broken list, with every
+			// later visit inheriting a black screen.
+			if (!s.blank) {
+				try { localStorage.setItem(REV_KEY, REV); } catch (e) { /* private mode */ }
+				clearInterval(timer);
+				return;
+			}
+			if (Date.now() > deadline) { clearInterval(timer); return; }
 
 			const looping = s.reloads >= 8;
 			if (!s.scriptErrors && !looping) return;
@@ -637,7 +655,6 @@
 
 			RetroLog.warn(`${why} — opcode list ${REV} looks wrong for this file, trying ${next}`);
 			try { sessionStorage.setItem("rsdkv4:triedLists", JSON.stringify(tried)); } catch (e) { /* private mode */ }
-			try { localStorage.setItem(REV_KEY, next); } catch (e) { /* private mode */ }
 
 			const url = new URL(location.href);
 			url.searchParams.set("rev", next);

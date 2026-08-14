@@ -286,6 +286,7 @@ there is a build per list, chosen with **Opcode rev** in the startup log, or
 | --- | --- |
 | *(default)* | the latest RSDKv4 list plus this engine's own additions — Sonic 1 Forever, Sonic 2 Absolute |
 | `1nc` | revision 1 without this engine's additions (`SetClassicFade`, `ClassicTint`, `LoadVideo`, `NextVideoFrame`) — the official mobile releases |
+| `2nc` | revision 2 without those additions — current store releases. Same as `1nc` below `LoadFontFile`, so try it if `1nc` shows the title but text menus glitch |
 | `0` | the earliest Sonic 1 list, also without those additions — the original Sonic 1 release |
 
 The choice is remembered per browser, so a home-screen launch keeps it, and it is

@@ -268,11 +268,24 @@
     var logText  = document.getElementById("logtext");
     var logPanel = document.getElementById("logpanel");
 
+    // If the engine hangs, the tab freezes and the panel can't open - so the log tail is
+    // saved to sessionStorage, and after a reload the previous run's trail is still here
+    try {
+        var prevLog = sessionStorage.getItem("sf-log");
+        if (prevLog) {
+            logLines.push("---- previous session ----");
+            logLines.push.apply(logLines, prevLog.split("\n"));
+            logLines.push("---- this session ----");
+        }
+    } catch (e) {}
+
     function logLine(tag, msg) {
         var t = (performance.now() / 1000).toFixed(1);
         logLines.push(t + "s [" + tag + "] " + msg);
         if (logLines.length > 5000)
             logLines.splice(0, 1000); // keep the tail; early lines matter less than the crash
+        // written synchronously so even a hard freeze right after this line leaves evidence
+        try { sessionStorage.setItem("sf-log", logLines.slice(-400).join("\n")); } catch (e) {}
         if (!logPanel.classList.contains("hidden"))
             renderLog();
     }

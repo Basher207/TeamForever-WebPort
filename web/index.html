@@ -52,6 +52,7 @@
         border-radius: 6px;
         image-rendering: pixelated;
         outline: none;
+        touch-action: none; /* touches control the game, not page scroll/zoom */
     }
     #overlay {
         position: absolute;
@@ -158,7 +159,8 @@
                 </div>
                 <span class="state missing" id="state-rsdk">needed</span>
                 <label class="filebtn" for="pick-rsdk">Choose</label>
-                <input type="file" id="pick-rsdk" accept=".rsdk,.zip">
+                <!-- no accept filter: iOS greys out files with extensions it doesn't recognize -->
+                <input type="file" id="pick-rsdk">
             </div>
 
             <div class="slot">
@@ -168,7 +170,7 @@
                 </div>
                 <span class="state missing" id="state-xmf">needed</span>
                 <label class="filebtn" for="pick-xmf">Choose</label>
-                <input type="file" id="pick-xmf" accept=".xmf,.rsdk,.apk,.zip,.obb">
+                <input type="file" id="pick-xmf">
             </div>
 
             <button id="start" disabled>Loading engine…</button>
@@ -178,7 +180,7 @@
             <div class="row">
                 <button id="export-save">Export save</button>
                 <label class="filebtn" for="import-save" style="background:transparent;border:1px solid var(--edge);font-size:13px">Import save</label>
-                <input type="file" id="import-save" accept=".bin">
+                <input type="file" id="import-save">
                 <button id="clear-data">Clear stored data</button>
             </div>
 

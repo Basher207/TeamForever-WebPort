@@ -293,6 +293,15 @@ bool processEvents()
 
 void RetroEngine::Init()
 {
+#if RETRO_PLATFORM == RETRO_WEB
+    // One build serves desktops and phones; browsers whose primary pointer is a
+    // finger get the mobile experience (touch HUD, tap menus) at runtime
+    if (EM_ASM_INT({ return window.matchMedia && window.matchMedia("(pointer: coarse)").matches ? 1 : 0; })) {
+        gameDeviceType = RETRO_MOBILE;
+        gamePlatform   = "MOBILE";
+    }
+#endif
+
     CalculateTrigAngles();
     GenerateBlendLookupTable();
 

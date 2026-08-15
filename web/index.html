@@ -137,6 +137,43 @@
         font-size: 13px;
     }
     input[type=file] { display: none; }
+    #logpanel {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background: rgba(11, 13, 26, 0.96);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 14px;
+    }
+    #logpanel.hidden { display: none; }
+    .logbox {
+        background: var(--panel);
+        border: 2px solid var(--edge);
+        border-radius: 10px;
+        width: 100%;
+        max-width: 760px;
+        height: min(80vh, 640px);
+        display: flex;
+        flex-direction: column;
+        padding: 12px;
+        gap: 10px;
+    }
+    .logbar { display: flex; gap: 10px; align-items: center; }
+    .logbar strong { flex: 1; }
+    #logtext {
+        flex: 1;
+        width: 100%;
+        resize: none;
+        background: #05070f;
+        color: #b8ffb8;
+        border: 1px solid var(--edge);
+        border-radius: 6px;
+        font: 11px/1.4 ui-monospace, Menlo, monospace;
+        padding: 8px;
+        white-space: pre;
+    }
 </style>
 </head>
 <body>
@@ -193,7 +230,19 @@
 </div>
 
 <div id="toolbar">
+    <button id="show-log">Logs</button>
     <button id="fullscreen" style="display:none">Fullscreen</button>
+</div>
+
+<div id="logpanel" class="hidden">
+    <div class="logbox">
+        <div class="logbar">
+            <strong>Engine log</strong>
+            <button id="copy-log">Copy all</button>
+            <button id="close-log">Close</button>
+        </div>
+        <textarea id="logtext" readonly spellcheck="false"></textarea>
+    </div>
 </div>
 
 <script>
@@ -213,9 +262,67 @@
     var runtimeReady = false;
     var gameStarted  = false;
 
+    // ---- Log capture: everything the engine and page do, copyable from any device ----------
+
+    var logLines = [];
+    var logText  = document.getElementById("logtext");
+    var logPanel = document.getElementById("logpanel");
+
+    function logLine(tag, msg) {
+        var t = (performance.now() / 1000).toFixed(1);
+        logLines.push(t + "s [" + tag + "] " + msg);
+        if (logLines.length > 5000)
+            logLines.splice(0, 1000); // keep the tail; early lines matter less than the crash
+        if (!logPanel.classList.contains("hidden"))
+            renderLog();
+    }
+
+    function renderLog() {
+        logText.value = logLines.join("\n");
+        logText.scrollTop = logText.scrollHeight;
+    }
+
+    function showLog() {
+        logPanel.classList.remove("hidden");
+        renderLog();
+    }
+
+    logLine("page", navigator.userAgent);
+    logLine("page", "url: " + location.href);
+
+    window.addEventListener("error", function (e) {
+        logLine("jserror", (e.message || e.type) + " @ " + (e.filename || "?") + ":" + (e.lineno || "?"));
+        showLog();
+    });
+    window.addEventListener("unhandledrejection", function (e) {
+        logLine("jserror", "unhandled rejection: " + (e.reason && e.reason.message || e.reason));
+        showLog();
+    });
+
+    document.getElementById("show-log").addEventListener("click", showLog);
+    document.getElementById("close-log").addEventListener("click", function () {
+        logPanel.classList.add("hidden");
+    });
+    document.getElementById("copy-log").addEventListener("click", function () {
+        var all = logLines.join("\n");
+        var btn = this;
+        function flash(t) { btn.textContent = t; setTimeout(function () { btn.textContent = "Copy all"; }, 1500); }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(all).then(function () { flash("Copied!"); }, function () {
+                logText.select();
+                flash("Select + copy manually");
+            });
+        } else {
+            logText.select();
+            document.execCommand("copy");
+            flash("Copied!");
+        }
+    });
+
     function setStatus(msg, isError) {
         statusEl.textContent = msg || "";
         statusEl.className = isError ? "error" : "";
+        if (msg) logLine(isError ? "error" : "status", msg);
         if (isError) console.error(msg);
     }
 
@@ -230,8 +337,8 @@
     window.Module = {
         canvas: document.getElementById("canvas"),
         noInitialRun: true,
-        print: function (t) { console.log(t); },
-        printErr: function (t) { console.warn(t); },
+        print: function (t) { console.log(t); logLine("engine", t); },
+        printErr: function (t) { console.warn(t); logLine("stderr", t); },
         preRun: [function () {
             // Everything (data packs, settings.ini, saves, mods) lives in one
             // IndexedDB-backed directory that is also the engine's working directory
@@ -240,21 +347,29 @@
             FS.chdir(GAME_DIR);
         }],
         onRuntimeInitialized: function () {
+            logLine("page", "wasm runtime initialized");
             syncFS(true).catch(function (err) {
-                console.warn("Could not restore stored data:", err);
+                logLine("error", "could not restore stored data: " + err);
             }).then(function () {
                 runtimeReady = true;
+                PACKS.forEach(function (pack) {
+                    try { logLine("page", "restored " + pack.file + ": " + FS.stat(packPath(pack)).size + " bytes"); }
+                    catch (e) { logLine("page", pack.file + ": not stored yet"); }
+                });
                 refreshSlots();
                 autoFetchDataRsdk();
             });
         },
         onEngineExit: function () {
+            logLine("page", "engine exited");
             overlay.classList.remove("hidden");
             startBtn.style.display = "none";
             setStatus("The game exited. Reload the page to play again.");
         },
         onAbort: function (what) {
+            logLine("abort", String(what));
             setStatus("The engine crashed: " + what, true);
+            showLog();
         },
     };
 
@@ -318,6 +433,7 @@
 
     function storePack(pack, bytes) {
         FS.writeFile(packPath(pack), bytes);
+        logLine("page", "stored " + pack.file + ": " + bytes.length + " bytes");
         refreshSlots();
     }
 
@@ -457,6 +573,7 @@
             overlay.classList.add("hidden");
             document.getElementById("fullscreen").style.display = "";
             Module.canvas.focus();
+            logLine("page", "starting engine");
             Module.callMain([]);
         });
     });

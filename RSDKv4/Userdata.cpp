@@ -690,6 +690,12 @@ void InitUserdata()
     else {
         WriteUserdata();
     }
+
+#if RETRO_PLATFORM == RETRO_WEB
+    // Always log on the web, whatever settings.ini says: the page's log panel is
+    // the only diagnostics a player can read (and share) from a phone browser
+    engineDebugMode = true;
+#endif
 }
 
 void WriteSettings()

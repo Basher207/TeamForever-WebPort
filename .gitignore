@@ -283,3 +283,9 @@ flatpak/*.apk
 build-dir
 dependencies/mac/OggAndVorbis.xcodeproj/project.xcworkspace/xcuserdata
 dependencies/mac/SDL2
+
+# Web (Emscripten) build dependencies built by dependencies/web/build-deps.sh
+dependencies/web/SDL
+dependencies/web/ogg
+dependencies/web/vorbis
+dependencies/web/prefix

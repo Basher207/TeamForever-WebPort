@@ -351,7 +351,10 @@ void ProcessStage(void)
             }
 			*/
 
-            if (!waitForVerify) {
+#if RETRO_USE_NETWORKING
+            if (!waitForVerify)
+#endif
+            {
                 if (timeEnabled) {
                     if (++frameCounter == 60) {
                         frameCounter = 0;

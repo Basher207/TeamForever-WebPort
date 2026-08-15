@@ -68,8 +68,13 @@ endif
 
 # =============================================================================
 
+# Platform configs can opt out of pkg-config (e.g. Emscripten resolves these libs via ports)
+USE_PKGCONFIG ?= 1
+
+ifeq ($(USE_PKGCONFIG),1)
 CFLAGS += `$(PKGCONFIG) --cflags sdl2 ogg vorbis theora vorbisfile theoradec`
 LIBS   += `$(PKGCONFIG) --libs-only-l --libs-only-L sdl2 ogg vorbis theora vorbisfile theoradec`
+endif
 
 #CFLAGS += -Wno-strict-aliasing -Wno-narrowing -Wno-write-strings
 
@@ -115,9 +120,15 @@ SOURCES = \
     RSDKv4/main         \
     RSDKv4/fcaseopen    \
     RSDKv4/NativeObjects/All                \
-    dependencies/all/theoraplay/theoraplay  \
     dependencies/all/tinyxml2/tinyxml2
-	
+
+# theoraplay needs threads; platform configs without video playback set USE_THEORAPLAY = 0
+USE_THEORAPLAY ?= 1
+
+ifeq ($(USE_THEORAPLAY),1)
+SOURCES += dependencies/all/theoraplay/theoraplay
+endif
+
 ifneq ($(FORCE_CASE_INSENSITIVE),)
 	CXXFLAGS_ALL += -DFORCE_CASE_INSENSITIVE
 endif

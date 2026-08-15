@@ -9,6 +9,10 @@ bool engineDebugMode = false;
 #include <unistd.h>
 #endif
 
+#if RETRO_PLATFORM == RETRO_WEB
+#include <emscripten.h>
+#endif
+
 RetroEngine Engine = RetroEngine();
 
 #if !RETRO_USE_ORIGINAL_CODE
@@ -495,33 +499,68 @@ void RetroEngine::Init()
 #endif
 }
 
+// Frame pacing state lives at file scope so a single frame can be driven either by the
+// native while-loop below or by the browser's requestAnimationFrame callback
+static unsigned long long targetFreq = 0;
+static unsigned long long prevTicks  = 0;
+static int lastFPS                   = 0;
+
+#if RETRO_PLATFORM == RETRO_WEB
+static void WebFrameCallback()
+{
+    if (Engine.running)
+        Engine.RunFrame();
+
+    if (!Engine.running) {
+        emscripten_cancel_main_loop();
+        Engine.Release();
+        EM_ASM({
+            if (Module["onEngineExit"])
+                Module["onEngineExit"]();
+        });
+    }
+}
+#endif
+
 void RetroEngine::Run()
 {
     Engine.deltaTime = 0.0f;
 
-    unsigned long long targetFreq = SDL_GetPerformanceFrequency() / Engine.refreshRate;
-    unsigned long long curTicks   = 0;
-    unsigned long long prevTicks  = 0;
-	int lastFPS = Engine.refreshRate;
+    targetFreq = SDL_GetPerformanceFrequency() / Engine.refreshRate;
+    prevTicks  = 0;
+    lastFPS    = Engine.refreshRate;
 
-    while (running) {
-#if !RETRO_USE_ORIGINAL_CODE
-        //if (!vsync) {
-            curTicks = SDL_GetPerformanceCounter();
-            if (curTicks < prevTicks + targetFreq)
-                continue;
-            prevTicks = curTicks;
-        //}
+#if RETRO_PLATFORM == RETRO_WEB
+    // Browsers can't block in main(); hand the loop to requestAnimationFrame.
+    // RunFrame()'s own limiter keeps game logic at Engine.refreshRate on faster displays.
+    emscripten_set_main_loop(WebFrameCallback, 0, 1);
+#else
+    while (running) RunFrame();
 
-        Engine.deltaTime = 1.0 / 60;
+    Release();
 #endif
+}
+
+void RetroEngine::RunFrame()
+{
+#if !RETRO_USE_ORIGINAL_CODE
+    //if (!vsync) {
+        unsigned long long curTicks = SDL_GetPerformanceCounter();
+        if (curTicks < prevTicks + targetFreq)
+            return;
+        prevTicks = curTicks;
+    //}
+
+    Engine.deltaTime = 1.0 / 60;
+#endif
+    {
         running = processEvents();
 
         if (lastFPS != Engine.refreshRate) {
 		    targetFreq = SDL_GetPerformanceFrequency() / Engine.refreshRate;
 			lastFPS = Engine.refreshRate;
 		}
-		
+
         // Focus Checks
 		/*
         if (!(disableFocusPause & 2)) {
@@ -619,7 +658,10 @@ void RetroEngine::Run()
 #endif
         }
     }
+}
 
+void RetroEngine::Release()
+{
     ReleaseAudioDevice();
     StopVideoPlayback();
     ReleaseRenderDevice();

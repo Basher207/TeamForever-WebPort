@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sonic the Hedgehog Forever</title>
+<style>
+    :root {
+        --bg: #0b0d1a;
+        --panel: #151a30;
+        --edge: #4740d4;
+        --text: #f0f2ff;
+        --dim: #9aa1c7;
+        --gold: #e8c04c;
+        --ok: #5dd47a;
+        --err: #e86a6a;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        padding: 24px 16px;
+    }
+    h1 {
+        margin: 0;
+        font-size: 28px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+    }
+    h1 .forever { color: var(--gold); }
+    #game-wrap {
+        width: 100%;
+        max-width: 1278px;
+        position: relative;
+    }
+    canvas.emscripten {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 16 / 9;
+        background: #000;
+        border: 3px solid var(--edge);
+        border-radius: 6px;
+        image-rendering: pixelated;
+        outline: none;
+    }
+    #overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(11, 13, 26, 0.92);
+        border-radius: 6px;
+        padding: 16px;
+    }
+    #overlay.hidden { display: none; }
+    #panel {
+        background: var(--panel);
+        border: 2px solid var(--edge);
+        border-radius: 10px;
+        max-width: 560px;
+        width: 100%;
+        max-height: 100%;
+        overflow-y: auto;
+        padding: 20px 24px;
+    }
+    #panel h2 { margin: 0 0 6px; font-size: 20px; }
+    #panel p { margin: 8px 0; color: var(--dim); font-size: 14px; line-height: 1.45; }
+    #panel p strong { color: var(--text); }
+    .slot {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: rgba(0,0,0,0.25);
+        border: 1px dashed var(--edge);
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin: 10px 0;
+    }
+    .slot .info { flex: 1; min-width: 0; }
+    .slot .name { font-weight: 600; font-size: 15px; }
+    .slot .hint { color: var(--dim); font-size: 12.5px; margin-top: 2px; }
+    .slot .state { font-size: 13px; white-space: nowrap; }
+    .state.ok { color: var(--ok); }
+    .state.missing { color: var(--err); }
+    button, .filebtn {
+        font: inherit;
+        color: var(--text);
+        background: var(--edge);
+        border: none;
+        border-radius: 6px;
+        padding: 8px 14px;
+        cursor: pointer;
+    }
+    button:hover, .filebtn:hover { filter: brightness(1.15); }
+    button:disabled { opacity: 0.45; cursor: default; filter: none; }
+    #start {
+        width: 100%;
+        margin-top: 12px;
+        padding: 12px;
+        font-size: 17px;
+        font-weight: 700;
+        background: var(--gold);
+        color: #201a05;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    #status { min-height: 20px; font-size: 13.5px; color: var(--dim); margin-top: 10px; }
+    #status.error { color: var(--err); }
+    progress { width: 100%; height: 8px; accent-color: var(--gold); }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    .row button { background: transparent; border: 1px solid var(--edge); font-size: 13px; }
+    .footnote { font-size: 12px !important; }
+    a { color: var(--gold); }
+    #toolbar {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+        max-width: 1278px;
+        justify-content: flex-end;
+    }
+    #toolbar button {
+        background: transparent;
+        border: 1px solid var(--edge);
+        font-size: 13px;
+    }
+    input[type=file] { display: none; }
+</style>
+</head>
+<body>
+<h1>Sonic the Hedgehog <span class="forever">Forever</span></h1>
+
+<div id="game-wrap">
+    <canvas id="canvas" class="emscripten" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+
+    <div id="overlay">
+        <div id="panel">
+            <h2>Play in your browser</h2>
+            <p>This port needs the game's data files once; they're then stored in your browser
+               (nothing is uploaded anywhere).</p>
+
+            <div class="slot">
+                <div class="info">
+                    <div class="name">Data.rsdk</div>
+                    <div class="hint">From the Sonic Forever release — the file next to SonicForever.exe (a .zip of the release works too)</div>
+                </div>
+                <span class="state missing" id="state-rsdk">needed</span>
+                <label class="filebtn" for="pick-rsdk">Choose</label>
+                <input type="file" id="pick-rsdk" accept=".rsdk,.zip">
+            </div>
+
+            <div class="slot">
+                <div class="info">
+                    <div class="name">Data.rsdk.xmf</div>
+                    <div class="hint">From your copy of the Sonic the Hedgehog Classic app — pick the file, or the app's .apk directly</div>
+                </div>
+                <span class="state missing" id="state-xmf">needed</span>
+                <label class="filebtn" for="pick-xmf">Choose</label>
+                <input type="file" id="pick-xmf" accept=".xmf,.rsdk,.apk,.zip,.obb">
+            </div>
+
+            <button id="start" disabled>Loading engine…</button>
+            <div id="status"></div>
+            <progress id="progress" value="0" max="1" style="display:none"></progress>
+
+            <div class="row">
+                <button id="export-save">Export save</button>
+                <label class="filebtn" for="import-save" style="background:transparent;border:1px solid var(--edge);font-size:13px">Import save</label>
+                <input type="file" id="import-save" accept=".bin">
+                <button id="clear-data">Clear stored data</button>
+            </div>
+
+            <p class="footnote">You must own the game — get the official
+               <a href="https://play.google.com/store/apps/details?id=com.sega.sonic1px" target="_blank" rel="noopener">Android</a> or
+               <a href="https://apps.apple.com/app/sonic-the-hedgehog-classic/id316050001" target="_blank" rel="noopener">iOS</a> release.
+               Controls: arrow keys + A/S/D, Enter = start. ESC opens the dev menu if enabled.</p>
+        </div>
+    </div>
+</div>
+
+<div id="toolbar">
+    <button id="fullscreen" style="display:none">Fullscreen</button>
+</div>
+
+<script>
+(function () {
+    "use strict";
+
+    var GAME_DIR  = "/game";
+    var PACKS     = [
+        { file: "Data.rsdk",     stateEl: "state-rsdk", present: false },
+        { file: "Data.rsdk.xmf", stateEl: "state-xmf",  present: false },
+    ];
+
+    var statusEl   = document.getElementById("status");
+    var progressEl = document.getElementById("progress");
+    var startBtn   = document.getElementById("start");
+    var overlay    = document.getElementById("overlay");
+    var runtimeReady = false;
+    var gameStarted  = false;
+
+    function setStatus(msg, isError) {
+        statusEl.textContent = msg || "";
+        statusEl.className = isError ? "error" : "";
+        if (isError) console.error(msg);
+    }
+
+    function syncFS(populate) {
+        return new Promise(function (resolve, reject) {
+            FS.syncfs(populate, function (err) { err ? reject(err) : resolve(); });
+        });
+    }
+
+    // ---- Engine (Emscripten Module) configuration -------------------------------------------
+
+    window.Module = {
+        canvas: document.getElementById("canvas"),
+        noInitialRun: true,
+        print: function (t) { console.log(t); },
+        printErr: function (t) { console.warn(t); },
+        preRun: [function () {
+            // Everything (data packs, settings.ini, saves, mods) lives in one
+            // IndexedDB-backed directory that is also the engine's working directory
+            FS.mkdir(GAME_DIR);
+            FS.mount(FS.filesystems.IDBFS, {}, GAME_DIR);
+            FS.chdir(GAME_DIR);
+        }],
+        onRuntimeInitialized: function () {
+            syncFS(true).catch(function (err) {
+                console.warn("Could not restore stored data:", err);
+            }).then(function () {
+                runtimeReady = true;
+                refreshSlots();
+                autoFetchDataRsdk();
+            });
+        },
+        onEngineExit: function () {
+            overlay.classList.remove("hidden");
+            startBtn.style.display = "none";
+            setStatus("The game exited. Reload the page to play again.");
+        },
+        onAbort: function (what) {
+            setStatus("The engine crashed: " + what, true);
+        },
+    };
+
+    // ---- Data pack handling -----------------------------------------------------------------
+
+    function packPath(pack) { return GAME_DIR + "/" + pack.file; }
+
+    function packInFS(pack) {
+        try { return FS.stat(packPath(pack)).size > 0; } catch (e) { return false; }
+    }
+
+    function refreshSlots() {
+        var allPresent = true;
+        PACKS.forEach(function (pack) {
+            pack.present = packInFS(pack);
+            var el = document.getElementById(pack.stateEl);
+            el.textContent = pack.present ? "ready" : "needed";
+            el.className = "state " + (pack.present ? "ok" : "missing");
+            if (!pack.present) allPresent = false;
+        });
+        if (gameStarted) return;
+        startBtn.disabled = !(runtimeReady && allPresent);
+        startBtn.textContent = runtimeReady
+            ? (allPresent ? "Start Game" : "Add the files above to play")
+            : "Loading engine…";
+    }
+
+    // The Forever site ships Data.rsdk with the game download; if the person hosting this
+    // page put a copy next to index.html we can fetch it without bothering the player
+    function autoFetchDataRsdk() {
+        var pack = PACKS[0];
+        if (pack.present) return;
+        fetch("Data.rsdk").then(function (resp) {
+            if (!resp.ok) throw new Error("no hosted copy");
+            var total = +resp.headers.get("Content-Length") || 0;
+            var chunks = [], received = 0;
+            var reader = resp.body.getReader();
+            progressEl.style.display = "block";
+            setStatus("Downloading Data.rsdk…");
+            function pump() {
+                return reader.read().then(function (r) {
+                    if (r.done) return;
+                    chunks.push(r.value);
+                    received += r.value.length;
+                    if (total) progressEl.value = received / total;
+                    return pump();
+                });
+            }
+            return pump().then(function () {
+                var buf = new Uint8Array(received), at = 0;
+                chunks.forEach(function (c) { buf.set(c, at); at += c.length; });
+                storePack(pack, buf);
+                setStatus("");
+            });
+        }).catch(function () {
+            // Fine - the player provides the file instead
+        }).finally(function () {
+            progressEl.style.display = "none";
+        });
+    }
+
+    function storePack(pack, bytes) {
+        FS.writeFile(packPath(pack), bytes);
+        refreshSlots();
+    }
+
+    // Accepts either the wanted file itself or a zip/apk that contains it
+    function handlePicked(pack, file) {
+        setStatus("Reading " + file.name + "…");
+        file.arrayBuffer().then(function (buf) {
+            var head = new Uint8Array(buf, 0, Math.min(4, buf.byteLength));
+            var isZip = head[0] === 0x50 && head[1] === 0x4b; // "PK"
+            if (isZip && !file.name.toLowerCase().endsWith(".rsdk") ) {
+                return extractFromZip(buf, pack.file.toLowerCase()).then(function (bytes) {
+                    storePack(pack, bytes);
+                    setStatus("Extracted " + pack.file + " from " + file.name);
+                });
+            }
+            storePack(pack, new Uint8Array(buf));
+            setStatus("");
+        }).catch(function (err) {
+            setStatus("Couldn't use " + file.name + ": " + err.message, true);
+        });
+    }
+
+    // Minimal zip reader: walk the central directory for one entry, then inflate it
+    // with the browser's built-in DecompressionStream. Enough for APKs and release zips.
+    function extractFromZip(buf, wantedLower) {
+        return new Promise(function (resolve, reject) {
+            var dv = new DataView(buf);
+            var eocd = -1;
+            for (var i = buf.byteLength - 22, stop = Math.max(0, buf.byteLength - 65558); i >= stop; i--) {
+                if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+            }
+            if (eocd < 0) return reject(new Error("not a zip archive"));
+
+            var count = dv.getUint16(eocd + 10, true);
+            var ofs   = dv.getUint32(eocd + 16, true);
+            var names = [];
+            var td    = new TextDecoder();
+
+            for (var n = 0; n < count; n++) {
+                if (dv.getUint32(ofs, true) !== 0x02014b50) break;
+                var method   = dv.getUint16(ofs + 10, true);
+                var csize    = dv.getUint32(ofs + 20, true);
+                var nameLen  = dv.getUint16(ofs + 28, true);
+                var extraLen = dv.getUint16(ofs + 30, true);
+                var cmtLen   = dv.getUint16(ofs + 32, true);
+                var lho      = dv.getUint32(ofs + 42, true);
+                var name     = td.decode(new Uint8Array(buf, ofs + 46, nameLen));
+
+                if (name.toLowerCase().replace(/\\/g, "/").split("/").pop() === wantedLower) {
+                    var lnl = dv.getUint16(lho + 26, true);
+                    var lel = dv.getUint16(lho + 28, true);
+                    var comp = new Uint8Array(buf, lho + 30 + lnl + lel, csize);
+                    if (method === 0)
+                        return resolve(new Uint8Array(comp));
+                    if (method === 8) {
+                        var stream = new Blob([comp]).stream()
+                            .pipeThrough(new DecompressionStream("deflate-raw"));
+                        return new Response(stream).arrayBuffer()
+                            .then(function (ab) { resolve(new Uint8Array(ab)); }, reject);
+                    }
+                    return reject(new Error("unsupported compression method " + method));
+                }
+                names.push(name);
+                ofs += 46 + nameLen + extraLen + cmtLen;
+            }
+            reject(new Error("no " + wantedLower + " inside the archive"));
+        });
+    }
+
+    // ---- UI wiring --------------------------------------------------------------------------
+
+    document.getElementById("pick-rsdk").addEventListener("change", function () {
+        if (this.files[0]) handlePicked(PACKS[0], this.files[0]);
+        this.value = "";
+    });
+    document.getElementById("pick-xmf").addEventListener("change", function () {
+        if (this.files[0]) handlePicked(PACKS[1], this.files[0]);
+        this.value = "";
+    });
+
+    startBtn.addEventListener("click", function () {
+        if (gameStarted) return;
+        gameStarted = true;
+        startBtn.disabled = true;
+        setStatus("Saving data files to your browser…");
+        syncFS(false).catch(function (err) {
+            console.warn("Persist failed (the game will still run):", err);
+        }).then(function () {
+            setStatus("");
+            overlay.classList.add("hidden");
+            document.getElementById("fullscreen").style.display = "";
+            Module.canvas.focus();
+            Module.callMain([]);
+        });
+    });
+
+    document.getElementById("fullscreen").addEventListener("click", function () {
+        Module.canvas.requestFullscreen();
+    });
+
+    document.getElementById("export-save").addEventListener("click", function () {
+        try {
+            var data = FS.readFile(GAME_DIR + "/SData.bin");
+            var a = document.createElement("a");
+            a.href = URL.createObjectURL(new Blob([data], { type: "application/octet-stream" }));
+            a.download = "SData.bin";
+            a.click();
+            URL.revokeObjectURL(a.href);
+        } catch (e) {
+            setStatus("No save file yet.", true);
+        }
+    });
+
+    document.getElementById("import-save").addEventListener("change", function () {
+        var file = this.files[0];
+        this.value = "";
+        if (!file) return;
+        file.arrayBuffer().then(function (buf) {
+            FS.writeFile(GAME_DIR + "/SData.bin", new Uint8Array(buf));
+            return syncFS(false);
+        }).then(function () {
+            setStatus("Save imported.");
+        }).catch(function (err) {
+            setStatus("Import failed: " + err.message, true);
+        });
+    });
+
+    document.getElementById("clear-data").addEventListener("click", function () {
+        if (!confirm("Delete the stored data files, settings and saves from this browser?"))
+            return;
+        indexedDB.deleteDatabase(GAME_DIR);
+        setStatus("Stored data cleared. Reload the page.");
+    });
+})();
+</script>
+<script src="s1fs2a.js"></script>
+</body>
+</html>

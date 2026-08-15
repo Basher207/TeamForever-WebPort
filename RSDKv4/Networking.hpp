@@ -1,11 +1,17 @@
 #ifndef NETWORKING_H
 #define NETWORKING_H
 
+// The 2P VS data layout is referenced by Userdata even when networking itself is compiled out
+#define PACKET_SIZE 0x1000
+
+struct MultiplayerData {
+    int type;
+    int data[(PACKET_SIZE - 16) / sizeof(int) - 1];
+};
+
 #if RETRO_USE_NETWORKING
 #include <thread>
 #include <memory>
-
-#define PACKET_SIZE 0x1000
 
 extern char networkHost[64];
 extern char networkGame[7];
@@ -15,11 +21,6 @@ extern float lastPing;
 extern int dcError;
 extern bool waitingForPing;
 extern bool waitForVerify;
-
-struct MultiplayerData {
-    int type;
-    int data[(PACKET_SIZE - 16) / sizeof(int) - 1];
-};
 
 struct ServerPacket {
     byte header  = 0;

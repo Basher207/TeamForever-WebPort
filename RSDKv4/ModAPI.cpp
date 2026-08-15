@@ -410,6 +410,10 @@ void SaveMods()
         }
 
         modConfig.Write(mod_config.c_str(), false);
+
+#if RETRO_PLATFORM == RETRO_WEB
+        PersistBrowserData();
+#endif
     }
 }
 

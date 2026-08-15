@@ -143,6 +143,11 @@ bool ReadSaveRAMData();
 bool WriteSaveRAMData();
 
 #if !RETRO_USE_ORIGINAL_CODE
+#if RETRO_PLATFORM == RETRO_WEB
+// Debounced FS.syncfs so files written to the browser's in-memory FS reach IndexedDB
+void PersistBrowserData();
+#endif
+
 void InitUserdata();
 void WriteSettings();
 void ReadUserdata();

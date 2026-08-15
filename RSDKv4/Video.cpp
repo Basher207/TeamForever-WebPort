@@ -7,9 +7,11 @@ int videoWidth = 0;
 int videoHeight = 0;
 float videoAR = 0;
 
+#if RETRO_USE_VIDEO_PLAYBACK
 THEORAPLAY_Decoder *videoDecoder;
 const THEORAPLAY_VideoFrame *videoVidData;
 THEORAPLAY_Io callbacks;
+#endif
 
 byte videoSurface = 0;
 int videoFilePos = 0;
@@ -19,6 +21,7 @@ int vidBaseTicks = 0;
 
 bool videoSkipped = false;
 
+#if RETRO_USE_VIDEO_PLAYBACK
 static long videoRead(THEORAPLAY_Io *io, void *buf, long buflen)
 {
     FileIO *file    = (FileIO *)io->userdata;
@@ -33,7 +36,16 @@ static void videoClose(THEORAPLAY_Io *io)
     FileIO *file = (FileIO *)io->userdata;
     fClose(file);
 }
+#endif
 
+#if !RETRO_USE_VIDEO_PLAYBACK
+void PlayVideoFile(char *filePath)
+{
+    // Video playback isn't available on this platform; skip the cutscene and let
+    // the calling script carry on, same as when a video file is missing
+    PrintLog("Skipping video '%s' (video playback disabled on this platform)", filePath);
+}
+#else
 void PlayVideoFile(char *filePath) {
     char pathBuffer[0x100];
     int len = StrLength(filePath);
@@ -147,6 +159,7 @@ void PlayVideoFile(char *filePath) {
         PrintLog("Couldn't find file '%s'!", filepath);
     }
 }
+#endif // RETRO_USE_VIDEO_PLAYBACK
 
 void UpdateVideoFrame()
 {
@@ -204,6 +217,7 @@ void UpdateVideoFrame()
 }
 
 int ProcessVideo() {
+#if RETRO_USE_VIDEO_PLAYBACK
     if (videoPlaying == 1) {
         CheckKeyPress(&inputPress);
 
@@ -288,12 +302,14 @@ int ProcessVideo() {
             return 2; // its playing as expected
         }
     }
+#endif // RETRO_USE_VIDEO_PLAYBACK
 
     return 0; // its not even initialised
 }
 
 void StopVideoPlayback()
 {
+#if RETRO_USE_VIDEO_PLAYBACK
     if (videoPlaying == 1) {
         // `videoPlaying` and `videoDecoder` are read by
         // the audio thread, so lock it to prevent a race
@@ -317,6 +333,7 @@ void StopVideoPlayback()
 
         SDL_UnlockAudio();
     }
+#endif // RETRO_USE_VIDEO_PLAYBACK
 }
 
 void SetupVideoBuffer(int width, int height)

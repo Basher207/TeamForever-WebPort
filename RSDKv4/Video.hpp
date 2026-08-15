@@ -1,7 +1,9 @@
 #ifndef VIDEO_HPP
 #define VIDEO_HPP
 
+#if RETRO_USE_VIDEO_PLAYBACK
 #include "theoraplay.h"
+#endif
 
 extern int currentVideoFrame;
 extern int videoFrameCount;
@@ -9,10 +11,12 @@ extern int videoWidth;
 extern int videoHeight;
 extern float videoAR;
 
+#if RETRO_USE_VIDEO_PLAYBACK
 extern THEORAPLAY_Decoder *videoDecoder;
 extern const THEORAPLAY_VideoFrame *videoVidData;
 extern const THEORAPLAY_AudioPacket *videoAudioData;
 extern THEORAPLAY_Io callbacks;
+#endif
 
 extern byte videoSurface;
 extern int videoFilePos;

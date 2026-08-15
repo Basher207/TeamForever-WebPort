@@ -39,6 +39,28 @@ int sendCounter = 0;
 #include <sys/types.h>
 #endif
 
+#if RETRO_PLATFORM == RETRO_WEB
+#include <emscripten.h>
+
+// The browser build runs on an in-memory filesystem backed by IndexedDB (IDBFS, mounted by
+// the web shell). Writes only survive a page reload after FS.syncfs pushes them to the
+// browser; the sync is debounced since saves/settings often get written in bursts.
+void PersistBrowserData()
+{
+    EM_ASM({
+        if (Module["persistTimer"])
+            clearTimeout(Module["persistTimer"]);
+        Module["persistTimer"] = setTimeout(function() {
+            Module["persistTimer"] = null;
+            FS.syncfs(false, function(err) {
+                if (err)
+                    console.warn("FS.syncfs failed:", err);
+            });
+        }, 250);
+    });
+}
+#endif
+
 #if !RETRO_USE_ORIGINAL_CODE
 
 bool forceUseScripts          = true;
@@ -190,6 +212,9 @@ bool WriteSaveRAMData()
         return false;
     fWrite(saveRAM, sizeof(int), SAVEDATA_SIZE, saveFile);
     fClose(saveFile);
+#if RETRO_PLATFORM == RETRO_WEB
+    PersistBrowserData();
+#endif
     return true;
 }
 
@@ -817,6 +842,10 @@ void WriteSettings()
 #endif
 
     ini.Write(buffer, false);
+
+#if RETRO_PLATFORM == RETRO_WEB
+    PersistBrowserData();
+#endif
 }
 
 void ReadUserdata()
@@ -911,6 +940,10 @@ void WriteUserdata()
     for (int l = 0; l < LEADERBOARD_COUNT; ++l) fWrite(&leaderboards[l].score, 4, 1, userFile);
 
     fClose(userFile);
+
+#if RETRO_PLATFORM == RETRO_WEB
+    PersistBrowserData();
+#endif
 
     if (Engine.onlineActive) {
         // Load from online

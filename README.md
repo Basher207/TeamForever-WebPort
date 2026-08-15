@@ -74,6 +74,17 @@ If you want to transfer your save(s) from the official mobile version(s), the **
   * `mklink /D SDL ..\..\..\dependencies\android\SDL`
 * Open `android/` in Android Studio, install the NDK and everything else that it asks for, and build.
 
+## Web (WebAssembly, via Emscripten)
+This repo can build the game to run directly in a browser.
+* Install and activate the [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html), then in the same shell run `make PLATFORM=Emscripten`.
+  * SDL2, libogg and libvorbis are fetched automatically through Emscripten's ports system. If your machine can't download them (offline or restricted networks), run `./dependencies/web/build-deps.sh` once and build with `make PLATFORM=Emscripten WEB_DEPS=local` instead.
+* The build lands in `bin/Emscripten/` (`index.html`, `s1fs2a.js`, `s1fs2a.wasm`). Host that folder on any static web server and open it — for a quick local test run `python3 -m http.server` inside it. Opening `index.html` straight from disk will not work; browsers require HTTP for WebAssembly.
+* On first visit the page asks for the same data files the desktop release uses:
+  * `Data.rsdk` — from the Sonic 1 Forever release. If whoever hosts the page puts a copy next to `index.html`, it is picked up automatically.
+  * `Data.rsdk.xmf` — from your legally obtained copy of the Sonic the Hedgehog Classic app. The page accepts either the file itself or the app's `.apk`, from which it extracts the file right in the browser.
+* The data files, `settings.ini` and your saves all live inside the browser's own storage (IndexedDB). Nothing is uploaded anywhere — the whole game runs client-side, and the files only have to be provided once.
+* Differences from the desktop build: networking (Sonic 2's 2P VS) and `.ogv` video cutscenes are disabled on the web; everything else, including the dev menu, works as usual.
+
 ## Unofficial Branches
 Follow the installation instructions in the readme of each branch.
 * For the **PlayStation Vita**, go to [Xeeynamo's fork](https://github.com/xeeynamo/Sonic-1-2-2013-Decompilation).

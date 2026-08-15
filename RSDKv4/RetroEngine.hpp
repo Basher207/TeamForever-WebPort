@@ -9,7 +9,12 @@
 #define RETRO_USE_ORIGINAL_CODE (0)
 
 #define RETRO_USE_MOD_LOADER (!RETRO_USE_ORIGINAL_CODE && 1)
+// Networking is powered by asio + std::thread, neither of which is available in browsers
+#ifdef __EMSCRIPTEN__
+#define RETRO_USE_NETWORKING (0)
+#else
 #define RETRO_USE_NETWORKING (!RETRO_USE_ORIGINAL_CODE && 1)
+#endif
 
 // ================
 // STANDARD LIBS
@@ -39,6 +44,7 @@ typedef unsigned int uint;
 #define RETRO_UWP   (7)
 #define RETRO_LINUX (8)
 #define RETRO_SWITCH (9)
+#define RETRO_WEB    (10)
 
 // Platform types (Game manages platform-specific code such as HUD position using this rather than the above)
 #define RETRO_STANDARD (0)
@@ -61,6 +67,9 @@ typedef unsigned int uint;
 #define RETRO_DEVICETYPE (RETRO_STANDARD)
 #endif
 
+#elif defined __EMSCRIPTEN__
+#define RETRO_PLATFORM   (RETRO_WEB)
+#define RETRO_DEVICETYPE (RETRO_STANDARD)
 #elif defined __APPLE__
 #if __IPHONEOS__
 #define RETRO_PLATFORM   (RETRO_iOS)
@@ -95,7 +104,7 @@ typedef unsigned int uint;
 #endif
 
 #if RETRO_PLATFORM == RETRO_WIN || RETRO_PLATFORM == RETRO_OSX || RETRO_PLATFORM == RETRO_LINUX || RETRO_PLATFORM == RETRO_UWP                       \
-    || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_SWITCH
+    || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_SWITCH || RETRO_PLATFORM == RETRO_WEB
 #define RETRO_USING_SDL1 (0)
 #define RETRO_USING_SDL2 (1)
 #else // Since its an else & not an elif these platforms probably aren't supported yet
@@ -190,6 +199,10 @@ typedef unsigned int uint;
 
 #define RETRO_USE_HAPTICS (1)
 
+// Video (.ogv) playback uses theoraplay, which needs threads; browsers can't provide them
+// without special hosting requirements, so intro/cutscene videos are skipped on the web
+#define RETRO_USE_VIDEO_PLAYBACK (RETRO_PLATFORM != RETRO_WEB)
+
 // NOTE: This is only used for rev00 stuff, it was removed in rev01 and later builds
 #if RETRO_PLATFORM <= RETRO_WP7
 #define RETRO_GAMEPLATFORMID (RETRO_PLATFORM)
@@ -197,6 +210,8 @@ typedef unsigned int uint;
 
 // use *this* macro to determine what platform the game thinks its running on (since only the first 7 platforms are supported natively by scripts)
 #if RETRO_PLATFORM == RETRO_LINUX
+#define RETRO_GAMEPLATFORMID (RETRO_WIN)
+#elif RETRO_PLATFORM == RETRO_WEB
 #define RETRO_GAMEPLATFORMID (RETRO_WIN)
 #elif RETRO_PLATFORM == RETRO_UWP
 #define RETRO_GAMEPLATFORMID (UAP_GetRetroGamePlatformId())
@@ -282,7 +297,8 @@ enum RetroGameType {
 #define SCREEN_YSIZE   (240)
 #define SCREEN_CENTERY (SCREEN_YSIZE / 2)
 
-#if RETRO_PLATFORM == RETRO_WIN || RETRO_PLATFORM == RETRO_UWP || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_LINUX
+#if RETRO_PLATFORM == RETRO_WIN || RETRO_PLATFORM == RETRO_UWP || RETRO_PLATFORM == RETRO_ANDROID || RETRO_PLATFORM == RETRO_LINUX                   \
+    || RETRO_PLATFORM == RETRO_WEB
 #if RETRO_USING_SDL2
 #include <SDL.h>
 #elif RETRO_USING_SDL1
@@ -415,6 +431,8 @@ public:
 
     void Init();
     void Run();
+    void RunFrame();
+    void Release();
 
     bool LoadGameConfig(const char *filepath);
 #if RETRO_USE_MOD_LOADER

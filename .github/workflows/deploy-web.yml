@@ -1,21 +1,40 @@
 name: Deploy web build to GitHub Pages
 
+# Builds the engine to WebAssembly and publishes bin/Emscripten to GitHub Pages.
+#
+# No game assets are involved: the published page asks each player for the
+# data files from their own copy of the game and keeps them in their browser.
+#
+# One-time repository setup, needed before the first successful run:
+#   Settings -> Pages -> Build and deployment -> Source -> "GitHub Actions"
+
 on:
   push:
     branches:
       - claude/sonic-hedgehog-forever-port-6asb7y
       - foreve
+    paths:
+      - 'RSDKv4/**'
+      - 'dependencies/**'
+      - 'web/**'
+      - 'Makefile'
+      - 'Makefile_cfgs/**'
+      - '.github/workflows/deploy-web.yml'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
+# Never let two deploys race; let a running one finish rather than cancelling
+# it, so Pages is not left serving a half-published site.
 concurrency:
-  group: deploy-web
-  cancel-in-progress: true
+  group: pages
+  cancel-in-progress: false
 
 jobs:
-  build-deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,10 +48,27 @@ jobs:
       - name: Build
         run: make PLATFORM=Emscripten -j4
 
-      - name: Publish to gh-pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Assemble the site
+        run: |
+          mkdir -p _site
+          cp bin/Emscripten/index.html bin/Emscripten/s1fs2a.js bin/Emscripten/s1fs2a.wasm _site/
+          touch _site/.nojekyll
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: bin/Emscripten
-          # keep files added straight to gh-pages (e.g. a hosted Data.rsdk)
-          keep_files: true
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,36 @@
+name: Deploy web build to GitHub Pages
+
+on:
+  push:
+    branches:
+      - claude/sonic-hedgehog-forever-port-6asb7y
+      - foreve
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 6.0.6
+
+      - name: Build
+        run: make PLATFORM=Emscripten -j4
+
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: bin/Emscripten
+          # keep files added straight to gh-pages (e.g. a hosted Data.rsdk)
+          keep_files: true
